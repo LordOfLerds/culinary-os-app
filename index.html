@@ -113,6 +113,10 @@ a{color:inherit}
 .shl li.done{color:var(--mut2);text-decoration:line-through}
 .ck{width:20px;height:20px;border:1.5px solid #c9c3b6;border-radius:6px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:13px;color:#fff}
 .shl li.done .ck{background:var(--teal);border-color:var(--teal)}
+.shl li.have{color:var(--mut2);cursor:default}
+.shl li.have .ck{background:var(--teal);border-color:var(--teal)}
+.shl .hk{color:var(--teal);font-weight:700;font-size:12.5px}
+.shl .part{font-size:10px;color:var(--teal);background:var(--soft);border:1px solid var(--line);border-radius:5px;padding:1px 5px;margin-left:5px;font-weight:600}
 .shl .q{margin-left:auto;color:var(--mut);font-variant-numeric:tabular-nums;font-size:13px}
 .empty-big{text-align:center;color:var(--mut2);font-size:14px;padding:50px 30px;line-height:1.6}
 /* vorrat */
@@ -298,8 +302,13 @@ function viewPlan(){var p=getPlan();
 }
 
 /* ---------- SHOPPING ---------- */
+function pantryHave(name,unit){if(!P||!P.length)return 0;var bl=(name||'').toLowerCase().trim(),bu=(unit||'').toLowerCase().trim();var t=0;
+  P.forEach(function(it){var au=(it.unit||'').toLowerCase().trim();if(au!==bu)return;var al=(it.name||'').toLowerCase().trim();
+    if((al.length>=4&&bl.indexOf(al)>=0)||(bl.length>=4&&al.indexOf(bl)>=0))t+=(+it.qty||0);});
+  return t;}
 function viewShopping(){const p=getPlan();const ids=planIds(p);
   if(!ids.length) return `<div class="topbar"><h1>Einkaufsliste</h1></div><div class="empty-big">Noch nichts geplant.<br>Füge Gerichte über „＋ Zum Plan" hinzu — die Zutaten landen automatisch hier, nach Kategorie sortiert.</div>`;
+  if(P===null)loadPantry();
   const agg={}; // aisle -> name -> {byUnit:{unit:qty}}
   ids.forEach(id=>{const r=byId(id);if(!r)return;r.components.forEach(c=>c.ingredients.forEach(i=>{
     const a=i.aisle||'snacks_sonstiges';const key=i.name;agg[a]=agg[a]||{};agg[a][key]=agg[a][key]||{};
@@ -307,13 +316,18 @@ function viewShopping(){const p=getPlan();const ids=planIds(p);
   }));});
   const done=store.get('shop_done',{});
   const order=Object.keys(AISLE_DE).filter(a=>agg[a]);
+  let buyN=0,haveN=0;
   const html=order.map(a=>{const items=Object.keys(agg[a]).sort().map(nm=>{
-    const qs=Object.entries(agg[a][nm]).map(([u,q])=>fmtQty(q,u,1)).filter(Boolean).join(' + ');
-    const k=a+'|'+nm; const dn=done[k]?'done':'';
-    return `<li class="${dn}" onclick="toggleShop('${esc(k).replace(/'/g,"\\'")}')"><span class="ck">✓</span><span>${esc(nm)}</span><span class="q">${esc(qs)}</span></li>`;
+    let parts=[],covered=true,anyHave=false;
+    Object.entries(agg[a][nm]).forEach(([u,q])=>{if(!q)return;const have=pantryHave(nm,u);if(have>0)anyHave=true;const buy=q-have;if(buy>1e-9){covered=false;parts.push(fmtQty(buy,u,1));}});
+    const k=a+'|'+nm;
+    if(covered&&anyHave){haveN++;return `<li class="have"><span class="ck">✓</span><span>${esc(nm)}</span><span class="q hk">im Vorrat</span></li>`;}
+    buyN++;const dn=done[k]?'done':'';const qs=parts.join(' + ');
+    return `<li class="${dn}" onclick="toggleShop('${esc(k).replace(/'/g,"\\'")}')"><span class="ck">✓</span><span>${esc(nm)}${anyHave?' <span class="part">tlw. da</span>':''}</span><span class="q">${esc(qs)}</span></li>`;
   }).join('');
     return `<div class="aisle"><h3>${AISLE_DE[a]}</h3><ul class="shl">${items}</ul></div>`;}).join('');
-  return `<div class="topbar"><h1>Einkaufsliste</h1><div class="sub">${ids.length} Gerichte · nach Kategorie · abhaken zum Einkaufen</div></div>${html}<div class="btnrow"><button class="btn btn-s" onclick="if(confirm('Abgehakte zurücksetzen?')){store.set('shop_done',{});render();}">Haken zurücksetzen</button></div><div style="height:20px"></div>`;
+  const sub=P===null?`${ids.length} Gerichte · Vorrat lädt…`:`${ids.length} Gerichte · ${buyN} zu kaufen${haveN?` · ${haveN} im Vorrat ✓`:''}`;
+  return `<div class="topbar"><h1>Einkaufsliste</h1><div class="sub">${sub}</div></div>${html}<div class="btnrow"><button class="btn btn-s" onclick="if(confirm('Abgehakte zurücksetzen?')){store.set('shop_done',{});render();}">Haken zurücksetzen</button></div><div style="height:20px"></div>`;
 }
 function toggleShop(k){const d=store.get('shop_done',{});d[k]=!d[k];store.set('shop_done',d);render();}
 
