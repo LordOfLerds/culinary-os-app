@@ -112,6 +112,10 @@ a{color:inherit}
 .addslot{margin-top:9px;width:100%;background:var(--soft);border:1px dashed var(--line);color:var(--acc);border-radius:10px;padding:9px;font-size:13px;font-weight:600;cursor:pointer}
 .planbar{margin:12px 14px 0;display:flex;gap:8px}
 .planbar .btn{flex:1}
+.rate{display:flex;align-items:center;justify-content:space-between;margin:2px 16px 6px;padding:8px 0}
+.rate .rlbl2{font-size:13px;color:var(--mut);font-weight:600}
+.starrow .star{font-size:25px;cursor:pointer;padding:0 2px;color:var(--mut2)}
+.starrow .star.on{color:#e3a700}
 /* shopping */
 .aisle{margin:14px 14px 0}
 .aisle h3{font-size:13px;color:var(--acc);text-transform:capitalize;margin-bottom:6px}
@@ -263,6 +267,8 @@ function clearF(){state.cuisine='';state.course='';state.protein='';render();}
 function setSlot(s){state.slot=s;render();}
 
 function viewDetail(){const r=state.recipe; if(!r) return viewRecipes();
+  if(RATE===null)loadRatings();
+  const rid=r.rid||r.id;
   const base=r.base_servings||2; const sv=state.servings[r.id]||base; const sc=sv/base;
   const m=r.macros_per_serving||{}; const fl=r.flavor||{};
   let pr=(r.pairing||'').trim(), pb='';
@@ -279,6 +285,7 @@ function viewDetail(){const r=state.recipe; if(!r) return viewRecipes();
     <div class="hero"><div class="over">${esc(r.slot||'')}${r.eloquent_note?' · '+esc(r.eloquent_note):''}</div><h2>${esc(r.title)}</h2>${r.subtitle?`<div class="sub">${esc(r.subtitle)}</div>`:''}</div>
     <div class="metar">${r.active_minutes?`<span><b>Aktiv</b> ${r.active_minutes}′</span>`:''}${r.total_minutes?`<span><b>Gesamt</b> ${r.total_minutes}′</span>`:''}${r.difficulty?`<span><b>Niveau</b> ${esc(r.difficulty)}</span>`:''}${r.heat_note?`<span><b>Hitze</b> ${esc(r.heat_note)}</span>`:''}</div>
     <div class="serv"><span>Portionen</span><button onclick="setServ('${r.id}',${Math.max(1,sv-1)})">–</button><b>${sv} ${sv==base?'(Standard)':''}</b><button onclick="setServ('${r.id}',${sv+1})">+</button></div>
+    <div class="rate"><span class="rlbl2">Deine Bewertung</span><span class="starrow">${[1,2,3,4,5].map(n=>`<span class="star ${n<=myRating(rid)?'on':''}" onclick="rateRecipe('${rid}',${n})">${n<=myRating(rid)?'★':'☆'}</span>`).join('')}</span></div>
     <div class="sec"><div class="lbl">Nährwerte · pro Portion</div><div class="macros">
       <div class="mac"><b>${m.kcal||'–'}</b><span>kcal</span></div><div class="mac"><b>${m.protein||'–'}</b><span>Eiweiß g</span></div><div class="mac"><b>${m.carb||'–'}</b><span>KH g</span></div><div class="mac"><b>${m.fat||'–'}</b><span>Fett g</span></div><div class="mac"><b>${m.fiber||'–'}</b><span>Ballast. g</span></div></div></div>
     <div class="sec"><div class="lbl">Flavor-Balance</div><div class="flav"><div>${spider(fl)}</div><div class="txt">${flText}</div></div></div>
@@ -288,6 +295,19 @@ function viewDetail(){const r=state.recipe; if(!r) return viewRecipes();
   </div>`;
 }
 function setServ(id,v){state.servings[id]=v;render();}
+let RATE=null;
+async function loadRatings(){if(typeof SB==='undefined'||!SB||!SB.from)return;try{var r=await SB.from('recipe_ratings').select('recipe_id,stars').is('eater_id',null);RATE={};(r.data||[]).forEach(function(x){RATE[x.recipe_id]=x.stars;});}catch(e){RATE={};}render();}
+function myRating(id){return (RATE&&RATE[id])||0;}
+async function rateRecipe(id,stars){
+  if(typeof SB==='undefined'||!SB||!SB.from){toast('Bewerten nur in der Live-App');return;}
+  var prev=myRating(id);RATE=RATE||{};RATE[id]=stars;render();
+  try{var ex=await SB.from('recipe_ratings').select('id').eq('recipe_id',id).is('eater_id',null).limit(1);
+    if(ex.error)throw ex.error;
+    if(ex.data&&ex.data.length){var up=await SB.from('recipe_ratings').update({stars:stars}).eq('id',ex.data[0].id);if(up.error)throw up.error;}
+    else{var ins=await SB.from('recipe_ratings').insert({recipe_id:id,stars:stars});if(ins.error)throw ins.error;}
+    toast('★ '+stars+' gespeichert');
+  }catch(e){if(prev)RATE[id]=prev;else delete RATE[id];render();toast('Fehler beim Speichern');}
+}
 function openRecipe(id){state.recipe=byId(id);pushRecent(id);state.view='detail';window.scrollTo(0,0);render();}
 
 /* ---------- PLAN (Slot-Planer wie Notion) ---------- */
@@ -424,13 +444,13 @@ function openCook(id){const r=byId(id);
 function closeCook(){if(cookEl){cookEl.remove();cookEl=null;}document.body.style.overflow='';render();}
 async function cookApply(id){
   if(typeof SB==='undefined'||!SB||!SB.rpc){toast('Vorrat-Abbuchen nur in der Live-App');return;}
-  var r=byId(id);var base=(r&&r.base_servings)||2;var sv=state.servings[id]||base;
+  var r=byId(id);var base=(r&&r.base_servings)||2;var sv=state.servings[id]||base;var rid=(r&&r.rid)||id;
   toast('Prüfe Vorrat…');
-  try{var pre=await SB.rpc('cook_apply',{p_recipe:id,p_servings:sv,p_dry:true});
+  try{var pre=await SB.rpc('cook_apply',{p_recipe:rid,p_servings:sv,p_dry:true});
     if(pre.error){toast('Fehler: '+pre.error.message);return;}
     var rows=pre.data||[];
     if(!rows.length){toast('Keine passenden Vorräte zum Abbuchen');return;}
-    showCookApply(id,sv,rows);
+    showCookApply(rid,sv,rows);
   }catch(e){toast('Fehler beim Prüfen des Vorrats');}
 }
 function showCookApply(id,sv,rows){closeCA();
