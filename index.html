@@ -84,13 +84,17 @@ a{color:inherit}
 .badge-n{position:absolute;transform:translate(12px,-6px);background:var(--acc);color:#fff;font-size:9px;font-weight:700;border-radius:999px;padding:1px 5px}
 /* plan */
 .day{margin:12px 14px 0;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
-.day h3{font-size:14px;color:var(--acc)}
+.day h3{font-size:14px;color:var(--acc);display:flex;justify-content:space-between;align-items:baseline}
+.day h3 .dk{font-size:11.5px;color:var(--mut2);font-weight:400}
 .day .empty{font-size:12.5px;color:var(--mut2);padding:8px 0}
-.prow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--soft);font-size:14px}
+.prow{display:flex;justify-content:space-between;align-items:center;gap:9px;padding:8px 0;border-top:1px solid var(--soft);font-size:14px}
 .prow:first-of-type{border-top:none}
-.prow .x{color:#b23;font-size:18px;cursor:pointer;padding:0 4px}
-.prow .t{flex:1;cursor:pointer}
+.prow .x{color:#b23;font-size:18px;cursor:pointer;padding:0 4px;flex:0 0 auto}
+.prow .slotb{flex:0 0 auto;font-size:10px;font-weight:700;color:var(--acc);background:var(--soft);border:1px solid var(--line);border-radius:7px;padding:2px 7px;white-space:nowrap;min-width:74px;text-align:center}
+.prow .t{flex:1;cursor:pointer;min-width:0}
 .prow .k{font-size:11px;color:var(--mut2)}
+.addslot{margin-top:9px;width:100%;background:var(--soft);border:1px dashed var(--line);color:var(--acc);border-radius:10px;padding:9px;font-size:13px;font-weight:600;cursor:pointer}
+.planbar{margin:12px 14px 0}
 /* shopping */
 .aisle{margin:14px 14px 0}
 .aisle h3{font-size:13px;color:var(--acc);text-transform:capitalize;margin-bottom:6px}
@@ -232,22 +236,40 @@ function viewDetail(){const r=state.recipe; if(!r) return viewRecipes();
 function setServ(id,v){state.servings[id]=v;render();}
 function openRecipe(id){state.recipe=byId(id);state.view='detail';window.scrollTo(0,0);render();}
 
-/* ---------- PLAN ---------- */
-function getPlan(){return store.get('plan',{});}
-function addToPlan(id){
-  const r=byId(id); openModal('An welchen Tag?', DAYS.map((d,i)=>({label:d,fn:()=>{const p=getPlan();p[i]=p[i]||[];if(!p[i].includes(id))p[i].push(id);store.set('plan',p);closeModal();toast(r.title+' → '+d);}})));
+/* ---------- PLAN (Slot-Planer wie Notion) ---------- */
+const SLOT_ORDER=['Beef','Chicken-1','Chicken-2','Fish','Veg-Mi','Veg-So','Cheat','Flex'];
+const SLOT_EMO={'Beef':'🥩','Chicken-1':'🍗','Chicken-2':'🍗','Fish':'🐟','Veg-Mi':'🥗','Veg-So':'🥦','Cheat':'🍔','Flex':'✨'};
+function getPlan(){var p=store.get('plan',{});var ch=false;
+  Object.keys(p).forEach(function(d){var v=p[d];if(Array.isArray(v)){var o={};v.forEach(function(id){var r=byId(id);var s=(r&&r.slot)||'Flex';if(!o[s])o[s]=id;});p[d]=o;ch=true;}});
+  if(ch)store.set('plan',p);return p;}
+function planIds(p){p=p||getPlan();var o=[];Object.keys(p).forEach(function(d){var ds=p[d];if(ds)Object.keys(ds).forEach(function(s){if(ds[s])o.push(ds[s]);});});return o;}
+function dayKcal(ds){if(!ds)return 0;return Object.keys(ds).reduce(function(a,s){var r=byId(ds[s]);return a+((r&&r.macros_per_serving&&r.macros_per_serving.kcal)||0);},0);}
+function addToPlan(id){var r=byId(id);var slot=(r&&r.slot&&SLOT_ORDER.indexOf(r.slot)>=0)?r.slot:'Flex';
+  openModal('An welchen Tag?',DAYS.map(function(d,i){return {label:d,fn:function(){assignSlot(i,slot,id);toast(r.title+' → '+d+' · '+slot);}};}));}
+function pickDay(day){openModal(DAYS[day]+' · Slot wählen',SLOT_ORDER.map(function(s){var p=getPlan();var taken=p[day]&&p[day][s]?byId(p[day][s]):null;
+  return {label:(SLOT_EMO[s]||'')+' '+s+(taken?' · '+taken.title:''),fn:function(){pickSlot(day,s);}};}));}
+function pickSlot(day,slot){var cands=R.filter(function(r){return r.slot===slot;});if(!cands.length)cands=R.slice();
+  cands.sort(function(a,b){return a.title.localeCompare(b.title);});
+  var opts=[{label:'🎲 Zufallsvorschlag',fn:function(){assignSlot(day,slot,cands[Math.floor(Math.random()*cands.length)].id);}}];
+  cands.forEach(function(r){opts.push({label:r.title+' · '+((r.macros_per_serving&&r.macros_per_serving.kcal)||'?')+' kcal',fn:function(){assignSlot(day,slot,r.id);}});});
+  openModal(DAYS[day]+' · '+(SLOT_EMO[slot]||'')+' '+slot,opts);}
+function assignSlot(day,slot,id){var p=getPlan();p[day]=p[day]||{};p[day][slot]=id;store.set('plan',p);closeModal();render();}
+function rmPlan(day,slot){var p=getPlan();if(p[day]){delete p[day][slot];if(!Object.keys(p[day]).length)delete p[day];}store.set('plan',p);render();}
+function suggestWeek(){if(!confirm('Leere Tage mit je 1 Vorschlag füllen?'))return;var p=getPlan();
+  DAYS.forEach(function(d,i){if(p[i]&&Object.keys(p[i]).length)return;var slot=SLOT_ORDER[Math.floor(Math.random()*6)];var c=R.filter(function(r){return r.slot===slot;});if(c.length){p[i]=p[i]||{};p[i][slot]=c[Math.floor(Math.random()*c.length)].id;}});
+  store.set('plan',p);render();}
+function viewPlan(){var p=getPlan();
+  var days=DAYS.map(function(d,i){var ds=p[i]||{};
+    var rows=SLOT_ORDER.filter(function(s){return ds[s];}).map(function(s){var r=byId(ds[s]);if(!r)return'';
+      return '<div class="prow"><span class="slotb">'+(SLOT_EMO[s]||'')+' '+esc(s)+'</span><span class="t" onclick="openRecipe(\''+r.id+'\')">'+esc(r.title)+'<div class="k">'+((r.macros_per_serving&&r.macros_per_serving.kcal)||'?')+' kcal</div></span><span class="x" onclick="rmPlan('+i+',\''+esc(s)+'\')">×</span></div>';}).join('');
+    var kc=dayKcal(ds);
+    return '<div class="day"><h3>'+d+(kc?'<span class="dk">'+kc+' kcal</span>':'')+'</h3>'+(rows||'<div class="empty">— noch nichts geplant —</div>')+'<button class="addslot" onclick="pickDay('+i+')">＋ Gericht in Slot</button></div>';}).join('');
+  var total=planIds(p).length;
+  return '<div class="topbar"><h1>Wochenplan</h1><div class="sub">'+total+' Gerichte · Slots wie in Notion · ＋ pro Tag</div></div><div class="planbar"><button class="btn btn-s" onclick="suggestWeek()">🎲 Ganze Woche vorschlagen</button></div>'+days+'<div style="height:20px"></div>';
 }
-function viewPlan(){const p=getPlan();
-  const days=DAYS.map((d,i)=>{const ids=p[i]||[];
-    const rows=ids.map(id=>{const r=byId(id);if(!r)return'';return `<div class="prow"><span class="t" onclick="openRecipe('${id}')">${esc(r.title)}<div class="k">${esc(r.slot)} · ${r.macros_per_serving.kcal||'?'} kcal</div></span><span class="x" onclick="rmPlan(${i},'${id}')">×</span></div>`;}).join('');
-    return `<div class="day"><h3>${d}</h3>${rows||'<div class="empty">— noch nichts geplant —</div>'}</div>`;}).join('');
-  const total=Object.values(p).reduce((a,b)=>a+b.length,0);
-  return `<div class="topbar"><h1>Wochenplan</h1><div class="sub">${total} Gerichte geplant · tippe ＋ Zum Plan in einem Rezept</div></div>${days}<div style="height:20px"></div>`;
-}
-function rmPlan(day,id){const p=getPlan();p[day]=(p[day]||[]).filter(x=>x!==id);store.set('plan',p);render();}
 
 /* ---------- SHOPPING ---------- */
-function viewShopping(){const p=getPlan();const ids=[].concat(...Object.values(p));
+function viewShopping(){const p=getPlan();const ids=planIds(p);
   if(!ids.length) return `<div class="topbar"><h1>Einkaufsliste</h1></div><div class="empty-big">Noch nichts geplant.<br>Füge Gerichte über „＋ Zum Plan" hinzu — die Zutaten landen automatisch hier, nach Kategorie sortiert.</div>`;
   const agg={}; // aisle -> name -> {byUnit:{unit:qty}}
   ids.forEach(id=>{const r=byId(id);if(!r)return;r.components.forEach(c=>c.ingredients.forEach(i=>{
@@ -322,7 +344,7 @@ function openModal(title,opts){closeModal();modalEl=document.createElement('div'
   modalEl.querySelectorAll('.opt').forEach((e,i)=>e.onclick=opts[i].fn);document.body.appendChild(modalEl);}
 function closeModal(){if(modalEl){modalEl.remove();modalEl=null;}}
 function go(v){state.view=v;window.scrollTo(0,0);render();}
-function nav(){const p=getPlan();const n=Object.values(p).reduce((a,b)=>a+b.length,0);
+function nav(){const p=getPlan();const n=planIds(p).length;
   const items=[['recipes','📖','Rezepte'],['plan','🗓','Plan'],['shopping','🛒','Einkauf'],['vorrat','🧺','Vorrat']];
   document.getElementById('nav').innerHTML=items.map(([v,ic,la])=>`<button class="${state.view===v||(v==='recipes'&&state.view==='detail')?'on':''}" onclick="go('${v}')"><span class="ic">${ic}</span>${la}${v==='plan'&&n?`<span class="badge-n">${n}</span>`:''}</button>`).join('');}
 function render(){const root=document.getElementById('root');
