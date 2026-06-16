@@ -29,13 +29,22 @@ a{color:inherit}
 .count{padding:4px 14px 0;font-size:12px;color:var(--mut2)}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:12px 14px 24px}
 @media(max-width:520px){.grid{grid-template-columns:1fr}}
-.rc{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;cursor:pointer;display:flex;flex-direction:column;gap:6px;transition:transform .06s}
+.rc{position:relative;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;cursor:pointer;display:flex;flex-direction:column;gap:6px;transition:transform .06s}
 .rc:active{transform:scale(.985)}
 .rc .slot{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--acc);font-weight:700}
 .rc h3{font-size:16px;line-height:1.2}
 .rc .sb{font-size:12.5px;color:var(--mut);line-height:1.35;flex:1}
 .rc .meta{display:flex;flex-wrap:wrap;gap:8px;font-size:11.5px;color:var(--mut2);margin-top:2px}
 .rc .meta b{color:var(--ink);font-weight:600}
+.rc .fav{position:absolute;top:8px;right:10px;font-size:20px;line-height:1;color:var(--mut2);cursor:pointer;z-index:2;padding:2px}
+.rc .fav.on{color:#e3a700}
+.rc .slot{padding-right:26px}
+.recent{margin:10px 14px 2px}
+.recent .rlbl{font-size:12px;color:var(--mut2);font-weight:600;margin-bottom:6px}
+.recent .rrow{display:flex;gap:9px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch}
+.recent .rcard{flex:0 0 auto;width:134px;background:var(--card);border:1px solid var(--line);border-radius:11px;padding:9px 10px;cursor:pointer}
+.recent .rcs{font-size:9.5px;color:var(--acc);font-weight:700;text-transform:uppercase;letter-spacing:.08em}
+.recent .rct{font-size:12.5px;font-weight:600;margin-top:3px;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .pill{font-size:10.5px;padding:3px 8px;border-radius:999px;background:var(--soft);color:var(--mut)}
 /* detail */
 .sheet{padding:0 0 30px}
@@ -176,8 +185,15 @@ function spider(fl){const cx=120,cy=96,Rr=64,n=FL.length;
 }
 
 /* ---------- RECIPES ---------- */
-function recipeCard(r){const m=r.macros_per_serving||{};
+function getFav(){return store.get('fav',{});}
+function isFav(id){return !!getFav()[id];}
+function toggleFav(id,ev){if(ev)ev.stopPropagation();var f=getFav();if(f[id])delete f[id];else f[id]=1;store.set('fav',f);render();}
+function getRecent(){return store.get('recent',[]);}
+function pushRecent(id){var a=getRecent().filter(function(x){return x!==id;});a.unshift(id);if(a.length>10)a=a.slice(0,10);store.set('recent',a);}
+function toggleFavOnly(){state.favOnly=!state.favOnly;render();}
+function recipeCard(r){const m=r.macros_per_serving||{};const fv=isFav(r.id);
   return `<div class="rc" onclick="openRecipe('${r.id}')">
+    <span class="fav ${fv?'on':''}" onclick="toggleFav('${r.id}',event)">${fv?'★':'☆'}</span>
     <div class="slot">${esc(r.slot||'')}</div>
     <h3>${esc(r.title)}</h3>
     <div class="sb">${esc(r.subtitle||r.eloquent_note||'')}</div>
@@ -190,6 +206,7 @@ function viewRecipes(){
   const uniq=k=>Array.from(new Set(R.flatMap(r=>Array.isArray(r[k])?r[k]:(r[k]?[r[k]]:[])).filter(Boolean))).sort();
   const sel=(id,label,opts,val)=>'<select class="fsel" onchange="setF(\''+id+'\',this.value)"><option value="">'+label+'</option>'+opts.map(o=>'<option'+(val===o?' selected':'')+'>'+esc(o)+'</option>').join('')+'</select>';
   let list=R.filter(r=>state.slot==='Alle'||r.slot===state.slot);
+  if(state.favOnly) list=list.filter(r=>isFav(r.id));
   if(state.cuisine) list=list.filter(r=>(r.cuisine||[]).includes(state.cuisine));
   if(state.course) list=list.filter(r=>r.category_label===state.course);
   if(state.protein) list=list.filter(r=>r.protein===state.protein);
@@ -198,11 +215,14 @@ function viewRecipes(){
   const kc=r=>num(r.macros_per_serving&&r.macros_per_serving.kcal);
   list=list.slice().sort((a,b)=> sort==='kcald'?kc(b)-kc(a) : sort==='kcal'?kc(a)-kc(b) : sort==='time'?num(a.total_minutes)-num(b.total_minutes) : sort==='title'?(a.title||'').localeCompare(b.title||'') : ((a.slot||'').localeCompare(b.slot||'')||(a.title||'').localeCompare(b.title||'')));
   const active=state.cuisine||state.course||state.protein;
+  const favChip='<div class="chip'+(state.favOnly?' on':'')+'" onclick="toggleFavOnly()">★ Favoriten</div>';
+  const recent=getRecent().map(byId).filter(Boolean);
+  const recentRow=(!q&&!active&&!state.favOnly&&recent.length>1)?'<div class="recent"><div class="rlbl">Zuletzt angesehen</div><div class="rrow">'+recent.slice(0,8).map(function(r){return '<div class="rcard" onclick="openRecipe(\''+r.id+'\')"><div class="rcs">'+esc(r.slot||'')+'</div><div class="rct">'+esc(r.title)+'</div></div>';}).join('')+'</div></div>':'';
   return `<div class="topbar"><h1>🍳 Culinary OS</h1><div class="sub">${R.length} Rezepte · dein Kochbuch</div>
     <input class="search" placeholder="Suchen: Titel, Küche, Tag…" value="${esc(state.q)}" oninput="state.q=this.value;render()">
     <div class="filters">${sel('cuisine','Küche',uniq('cuisine'),state.cuisine||'')}${sel('course','Gang/Art',uniq('category_label'),state.course||'')}${sel('protein','Protein',uniq('protein'),state.protein||'')}<select class="fsel" onchange="setF('sort',this.value)"><option value="slot"${sort==='slot'?' selected':''}>↕ Slot</option><option value="kcald"${sort==='kcald'?' selected':''}>kcal ↓</option><option value="kcal"${sort==='kcal'?' selected':''}>kcal ↑</option><option value="time"${sort==='time'?' selected':''}>Zeit ↑</option><option value="title"${sort==='title'?' selected':''}>A–Z</option></select>${active?'<button class="fclear" onclick="clearF()">✕</button>':''}</div></div>
-    <div class="chips">${chips}</div><div class="count">${list.length} Rezepte</div>
-    <div class="grid">${list.map(recipeCard).join('')||'<div class="empty-big">Nichts gefunden.</div>'}</div>`;
+    <div class="chips">${favChip}${chips}</div>${recentRow}<div class="count">${list.length} Rezepte</div>
+    <div class="grid">${list.map(recipeCard).join('')||(state.favOnly?'<div class="empty-big">Noch keine Favoriten — tippe ☆ auf einer Rezeptkarte.</div>':'<div class="empty-big">Nichts gefunden.</div>')}</div>`;
 }
 function setF(k,v){state[k]=v;render();}
 function clearF(){state.cuisine='';state.course='';state.protein='';render();}
@@ -234,7 +254,7 @@ function viewDetail(){const r=state.recipe; if(!r) return viewRecipes();
   </div>`;
 }
 function setServ(id,v){state.servings[id]=v;render();}
-function openRecipe(id){state.recipe=byId(id);state.view='detail';window.scrollTo(0,0);render();}
+function openRecipe(id){state.recipe=byId(id);pushRecent(id);state.view='detail';window.scrollTo(0,0);render();}
 
 /* ---------- PLAN (Slot-Planer wie Notion) ---------- */
 const SLOT_ORDER=['Beef','Chicken-1','Chicken-2','Fish','Veg-Mi','Veg-So','Cheat','Flex'];
