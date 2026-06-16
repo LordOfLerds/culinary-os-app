@@ -19,6 +19,9 @@ a{color:inherit}
 .topbar h1{font-size:21px;color:var(--acc);letter-spacing:.01em}
 .topbar .sub{font-size:11.5px;color:var(--mut2);margin-top:1px}
 .search{width:100%;margin-top:10px;padding:11px 13px;border:1px solid var(--line);border-radius:12px;background:#fff;font-size:15px;color:var(--ink)}
+.filters{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.fsel{flex:1 1 30%;min-width:0;padding:8px 7px;border:1px solid var(--line);border-radius:10px;background:#fff;font-size:12.5px;color:var(--ink)}
+.fclear{flex:0 0 auto;padding:8px 12px;border:1px solid var(--acc);border-radius:10px;background:#fff;color:var(--acc);font-weight:700;font-size:13px;cursor:pointer}
 .chips{display:flex;gap:7px;overflow-x:auto;padding:10px 14px 4px;-webkit-overflow-scrolling:touch}
 .chips::-webkit-scrollbar{display:none}
 .chip{flex:0 0 auto;font-size:12.5px;padding:7px 13px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--mut);white-space:nowrap;cursor:pointer}
@@ -169,13 +172,25 @@ function recipeCard(r){const m=r.macros_per_serving||{};
 function viewRecipes(){
   const chips=['Alle',...SLOTS].map(s=>`<div class="chip ${state.slot===s?'on':''}" onclick="setSlot('${s}')">${s}</div>`).join('');
   const q=state.q.trim().toLowerCase();
+  const uniq=k=>Array.from(new Set(R.flatMap(r=>Array.isArray(r[k])?r[k]:(r[k]?[r[k]]:[])).filter(Boolean))).sort();
+  const sel=(id,label,opts,val)=>'<select class="fsel" onchange="setF(\''+id+'\',this.value)"><option value="">'+label+'</option>'+opts.map(o=>'<option'+(val===o?' selected':'')+'>'+esc(o)+'</option>').join('')+'</select>';
   let list=R.filter(r=>state.slot==='Alle'||r.slot===state.slot);
-  if(q) list=list.filter(r=>(r.title+' '+(r.subtitle||'')+' '+(r.tags||[]).join(' ')+' '+(r.cuisine||[]).join(' ')+' '+(r.protein||'')).toLowerCase().includes(q));
+  if(state.cuisine) list=list.filter(r=>(r.cuisine||[]).includes(state.cuisine));
+  if(state.course) list=list.filter(r=>r.category_label===state.course);
+  if(state.protein) list=list.filter(r=>r.protein===state.protein);
+  if(q) list=list.filter(r=>(r.title+' '+(r.subtitle||'')+' '+(r.tags||[]).join(' ')+' '+(r.cuisine||[]).join(' ')+' '+(r.protein||'')+' '+(r.category_label||'')).toLowerCase().includes(q));
+  const sort=state.sort||'slot'; const num=v=>(v==null?1e9:v);
+  const kc=r=>num(r.macros_per_serving&&r.macros_per_serving.kcal);
+  list=list.slice().sort((a,b)=> sort==='kcald'?kc(b)-kc(a) : sort==='kcal'?kc(a)-kc(b) : sort==='time'?num(a.total_minutes)-num(b.total_minutes) : sort==='title'?(a.title||'').localeCompare(b.title||'') : ((a.slot||'').localeCompare(b.slot||'')||(a.title||'').localeCompare(b.title||'')));
+  const active=state.cuisine||state.course||state.protein;
   return `<div class="topbar"><h1>🍳 Culinary OS</h1><div class="sub">${R.length} Rezepte · dein Kochbuch</div>
-    <input class="search" placeholder="Suchen: Titel, Küche, Tag…" value="${esc(state.q)}" oninput="state.q=this.value;render()"></div>
+    <input class="search" placeholder="Suchen: Titel, Küche, Tag…" value="${esc(state.q)}" oninput="state.q=this.value;render()">
+    <div class="filters">${sel('cuisine','Küche',uniq('cuisine'),state.cuisine||'')}${sel('course','Gang/Art',uniq('category_label'),state.course||'')}${sel('protein','Protein',uniq('protein'),state.protein||'')}<select class="fsel" onchange="setF('sort',this.value)"><option value="slot"${sort==='slot'?' selected':''}>↕ Slot</option><option value="kcald"${sort==='kcald'?' selected':''}>kcal ↓</option><option value="kcal"${sort==='kcal'?' selected':''}>kcal ↑</option><option value="time"${sort==='time'?' selected':''}>Zeit ↑</option><option value="title"${sort==='title'?' selected':''}>A–Z</option></select>${active?'<button class="fclear" onclick="clearF()">✕</button>':''}</div></div>
     <div class="chips">${chips}</div><div class="count">${list.length} Rezepte</div>
     <div class="grid">${list.map(recipeCard).join('')||'<div class="empty-big">Nichts gefunden.</div>'}</div>`;
 }
+function setF(k,v){state[k]=v;render();}
+function clearF(){state.cuisine='';state.course='';state.protein='';render();}
 function setSlot(s){state.slot=s;render();}
 
 function viewDetail(){const r=state.recipe; if(!r) return viewRecipes();
