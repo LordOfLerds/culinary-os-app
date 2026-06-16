@@ -102,6 +102,17 @@ a{color:inherit}
 .shl li.done .ck{background:var(--teal);border-color:var(--teal)}
 .shl .q{margin-left:auto;color:var(--mut);font-variant-numeric:tabular-nums;font-size:13px}
 .empty-big{text-align:center;color:var(--mut2);font-size:14px;padding:50px 30px;line-height:1.6}
+/* vorrat */
+.psec{margin:14px 14px 0}
+.psec .pgh{font-size:13px;color:var(--acc);margin-bottom:6px;font-weight:600}
+.plist{list-style:none;margin:0;padding:0;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.pit{display:flex;align-items:center;gap:10px;padding:11px 13px;border-top:1px solid var(--soft);font-size:14.5px}
+.pit:first-child{border-top:none}
+.pdot{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
+.pn{font-weight:600;flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.popen{font-weight:400;font-size:10.5px;color:var(--mut2);background:var(--soft);border:1px solid var(--line);border-radius:6px;padding:1px 6px;margin-left:6px}
+.pq{flex:0 0 auto;color:var(--mut);font-variant-numeric:tabular-nums;font-size:13px}
+.pmhd{flex:0 0 auto;min-width:60px;text-align:right;font-size:12px;font-weight:700;font-variant-numeric:tabular-nums}
 /* cook */
 .cook{position:fixed;inset:0;z-index:50;background:var(--bg);overflow-y:auto;padding:0 0 40px}
 .cook .top{position:sticky;top:0;background:var(--bg);display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line)}
@@ -255,6 +266,25 @@ function viewShopping(){const p=getPlan();const ids=[].concat(...Object.values(p
 }
 function toggleShop(k){const d=store.get('shop_done',{});d[k]=!d[k];store.set('shop_done',d);render();}
 
+/* ---------- VORRAT ---------- */
+let P=null;
+async function loadPantry(){try{const r=await SB.rpc('app_pantry');P=(r&&r.data)||[];}catch(e){P=[];}render();}
+function pAmpel(d){if(d===null||d===undefined)return['',''];if(d<0)return['#c0392b','abgelaufen'];if(d===0)return['#e67e22','heute'];if(d===1)return['#e67e22','morgen'];if(d<=6)return['#d4a017',d+' Tage'];return['#3a7d44',d+' Tage'];}
+function viewPantry(){
+  if(P===null){loadPantry();return `<div class="topbar"><h1>Vorrat</h1><div class="sub">lädt…</div></div><div class="empty-big">Bestand wird geladen…</div>`;}
+  if(!P.length)return `<div class="topbar"><h1>Vorrat</h1></div><div class="empty-big">Noch kein Vorrat erfasst.<br>Belege importieren oder Artikel anlegen — dann erscheint hier dein Bestand mit MHD-Ampel.</div>`;
+  const LOC={kuehlschrank:'❄️ Kühlschrank',gefrier:'🧊 Gefrierfach',speis:'🗄 Speis / Vorrat',gewuerzregal:'🧂 Gewürze',sonstige:'📦 Sonstiges'};
+  const soon=P.filter(it=>it.days!==null&&it.days<=6).length;
+  const g={};P.forEach(it=>{const k=it.location||'sonstige';(g[k]=g[k]||[]).push(it);});
+  let h=`<div class="topbar"><h1>Vorrat</h1><div class="sub">${P.length} Artikel${soon?` · <b style="color:#e67e22">${soon} bald fällig</b>`:''} · MHD-Ampel</div></div>`;
+  Object.keys(g).forEach(loc=>{
+    h+=`<div class="psec"><div class="pgh">${LOC[loc]||esc(loc)}</div><ul class="plist">`;
+    g[loc].forEach(it=>{const a=pAmpel(it.days);
+      h+=`<li class="pit"><span class="pdot" style="background:${a[0]||'var(--line)'}"></span><span class="pn">${esc(it.name)}${it.opened?'<span class="popen">offen</span>':''}</span><span class="pq">${esc(String(it.qty))} ${esc(it.unit||'')}</span>${a[1]?`<span class="pmhd" style="color:${a[0]}">${a[1]}</span>`:''}</li>`;});
+    h+=`</ul></div>`;});
+  return h+`<div style="height:24px"></div>`;
+}
+
 /* ---------- COOK MODE ---------- */
 let cookEl=null;
 function openCook(id){const r=byId(id);
@@ -293,10 +323,10 @@ function openModal(title,opts){closeModal();modalEl=document.createElement('div'
 function closeModal(){if(modalEl){modalEl.remove();modalEl=null;}}
 function go(v){state.view=v;window.scrollTo(0,0);render();}
 function nav(){const p=getPlan();const n=Object.values(p).reduce((a,b)=>a+b.length,0);
-  const items=[['recipes','📖','Rezepte'],['plan','🗓','Plan'],['shopping','🛒','Einkauf']];
+  const items=[['recipes','📖','Rezepte'],['plan','🗓','Plan'],['shopping','🛒','Einkauf'],['vorrat','🧺','Vorrat']];
   document.getElementById('nav').innerHTML=items.map(([v,ic,la])=>`<button class="${state.view===v||(v==='recipes'&&state.view==='detail')?'on':''}" onclick="go('${v}')"><span class="ic">${ic}</span>${la}${v==='plan'&&n?`<span class="badge-n">${n}</span>`:''}</button>`).join('');}
 function render(){const root=document.getElementById('root');
-  root.innerHTML = state.view==='detail'?viewDetail():state.view==='plan'?viewPlan():state.view==='shopping'?viewShopping():viewRecipes();
+  root.innerHTML = state.view==='detail'?viewDetail():state.view==='plan'?viewPlan():state.view==='shopping'?viewShopping():state.view==='vorrat'?viewPantry():viewRecipes();
   nav();}
 function showLogin(msg){document.getElementById('nav').style.display='none';
   document.getElementById('root').innerHTML='<div style="max-width:420px;margin:11vh auto;padding:26px;text-align:center"><div style="font-size:42px">🍳</div><h1 style="font-family:Georgia,serif;color:var(--acc);margin:8px 0 2px;font-size:26px">Culinary OS</h1><div style="color:var(--mut);font-size:14px;margin-bottom:22px">Dein Kochbuch · 70 Rezepte, Plan, Vorrat</div><input id="em" type="email" autocomplete="username" placeholder="E-Mail" class="search" style="text-align:center;margin-bottom:8px"><input id="pw" type="password" autocomplete="current-password" placeholder="Passwort" class="search" style="text-align:center"><button class="btn btn-p" style="width:100%;margin-top:12px" onclick="doLogin()">Anmelden</button><div id="lmsg" style="font-size:13px;color:var(--mut);margin-top:16px;line-height:1.5">'+(msg||'')+'</div></div>';}
