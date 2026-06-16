@@ -139,6 +139,15 @@ a{color:inherit}
 .useup .us{flex:0 0 auto;background:#c2680f;color:#fff;font-size:11px;font-weight:700;border-radius:6px;padding:1px 7px}
 .useup .ut{flex:1;min-width:0;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .useup .uk{flex:0 0 auto;color:var(--mut2);font-size:12px;font-variant-numeric:tabular-nums}
+.caHint{padding:0 18px 6px;font-size:13px;color:var(--mut)}
+.caList{padding:0 18px;max-height:42vh;overflow:auto}
+.caRow{display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--soft);font-size:14px}
+.caRow:first-child{border-top:none}
+.caN{flex:1;min-width:0;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.caD{flex:0 0 auto;color:#c0392b;font-weight:600;font-variant-numeric:tabular-nums}
+.caB{flex:0 0 auto;color:var(--mut2);font-size:12px;font-variant-numeric:tabular-nums;min-width:74px;text-align:right}
+.caBtns{display:flex;gap:10px;padding:12px 18px 0}
+.caBtns .btn{flex:1}
 /* cook */
 .cook{position:fixed;inset:0;z-index:50;background:var(--bg);overflow-y:auto;padding:0 0 40px}
 .cook .top{position:sticky;top:0;background:var(--bg);display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line)}
@@ -380,10 +389,34 @@ function openCook(id){const r=byId(id);
   }).join('');
   cookEl=document.createElement('div');cookEl.className='cook';
   cookEl.innerHTML=`<div class="top"><h2>${esc(r.title)}</h2><span class="close" onclick="closeCook()">Fertig ✓</span></div>
-    <div style="font-size:12.5px;color:var(--mut2);padding:2px 16px 0">${total} Schritte · ${sv} Portionen · Mengen je Teil oben</div>${blocks}<div style="height:40px"></div>`;
+    <div style="font-size:12.5px;color:var(--mut2);padding:2px 16px 0">${total} Schritte · ${sv} Portionen · Mengen je Teil oben</div>${blocks}<div style="padding:12px 16px 0"><button class="btn btn-p" style="width:100%" onclick="cookApply('${r.id}')">✓ Gekocht — Vorrat abbuchen</button></div><div style="height:40px"></div>`;
   document.body.appendChild(cookEl);document.body.style.overflow='hidden';
 }
 function closeCook(){if(cookEl){cookEl.remove();cookEl=null;}document.body.style.overflow='';render();}
+async function cookApply(id){
+  if(typeof SB==='undefined'||!SB||!SB.rpc){toast('Vorrat-Abbuchen nur in der Live-App');return;}
+  var r=byId(id);var base=(r&&r.base_servings)||2;var sv=state.servings[id]||base;
+  toast('Prüfe Vorrat…');
+  try{var pre=await SB.rpc('cook_apply',{p_recipe:id,p_servings:sv,p_dry:true});
+    if(pre.error){toast('Fehler: '+pre.error.message);return;}
+    var rows=pre.data||[];
+    if(!rows.length){toast('Keine passenden Vorräte zum Abbuchen');return;}
+    showCookApply(id,sv,rows);
+  }catch(e){toast('Fehler beim Prüfen des Vorrats');}
+}
+function showCookApply(id,sv,rows){closeCA();
+  var list=rows.map(function(x){return '<div class="caRow"><span class="caN">'+esc(x.zutat)+'</span><span class="caD">−'+esc(fmtQty(x.abzug_menge,x.einheit,1))+'</span><span class="caB">Rest '+esc(fmtQty(x.neuer_bestand,x.einheit,1))+'</span></div>';}).join('');
+  var el=document.createElement('div');el.className='modal';el.id='caModal';
+  el.innerHTML='<div class="box"><h3>Vorrat abbuchen?</h3><div class="caHint">'+rows.length+' Posten werden vom Bestand abgezogen (für '+sv+' Portionen):</div><div class="caList">'+list+'</div><div class="caBtns"><button class="btn btn-s" onclick="closeCA()">Abbrechen</button><button class="btn btn-p" onclick="doCookApply(\''+id+'\','+sv+')">Abbuchen</button></div></div>';
+  el.onclick=function(e){if(e.target===el)closeCA();};document.body.appendChild(el);
+}
+function closeCA(){var e=document.getElementById('caModal');if(e)e.remove();}
+async function doCookApply(id,sv){closeCA();toast('Buche ab…');
+  try{var res=await SB.rpc('cook_apply',{p_recipe:id,p_servings:sv,p_dry:false});
+    if(res.error){toast('Fehler: '+res.error.message);return;}
+    var n=(res.data||[]).length;P=null;toast('✓ '+n+' Posten vom Vorrat abgebucht');
+  }catch(e){toast('Fehler beim Abbuchen');}
+}
 function toggleCook(id,i){const k='cook_'+id;const d=store.get(k,{});d[i]=!d[i];store.set(k,d);const el=document.getElementById('cs'+i);if(el){el.classList.toggle('done',d[i]);el.querySelector('.n').textContent=d[i]?'✓':(i+1);}}
 function runCook(i,min){let sec=min*60;const el=document.getElementById('ct'+i);if(el._iv){clearInterval(el._iv);el._iv=null;return;}
   el._iv=setInterval(()=>{sec--;el.textContent=Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0');if(sec<=0){clearInterval(el._iv);el._iv=null;el.textContent='fertig!';try{navigator.vibrate&&navigator.vibrate([300,150,300]);}catch(e){}speak('Timer fertig');}},1000);}
