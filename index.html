@@ -60,10 +60,11 @@ a{color:inherit}
 .comp .cd{font-size:12.5px;color:var(--mut2);margin:3px 0 10px}
 .badge{font-size:10px;padding:3px 9px;border-radius:999px;white-space:nowrap;font-weight:600}
 .b-amber{background:var(--amberbg);color:var(--amber)}.b-teal{background:var(--tealbg);color:var(--teal)}
-.ing{list-style:none;margin:0;padding:0;font-size:14px}
-.ing li{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px solid var(--soft)}
-.ing .q{color:var(--mut);font-variant-numeric:tabular-nums;white-space:nowrap}
-.ing .opt{color:var(--mut2);font-size:11px}
+.ing{list-style:none;margin:0;padding:0;font-size:14.5px}
+.ing li{display:flex;align-items:baseline;gap:10px;padding:7px 2px;border-bottom:1px solid var(--soft)}
+.ing .q{order:-1;flex:0 0 auto;min-width:64px;text-align:center;color:var(--acc);font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:3px 9px;font-size:13px}
+.ing .n{font-weight:600;color:var(--ink)}
+.ing .opt{color:var(--mut2);font-size:11px;font-weight:400}
 .steps{margin:10px 0 0;padding-left:20px;font-size:14px;line-height:1.55}
 .steps li{margin-bottom:7px}
 .tmr{display:inline-block;font-size:11px;color:var(--teal);background:var(--tealbg);border-radius:6px;padding:1px 7px;margin-left:6px;cursor:pointer}
@@ -111,6 +112,13 @@ a{color:inherit}
 .ctimer{display:inline-flex;align-items:center;gap:8px;margin-top:9px;background:var(--tealbg);color:var(--teal);border-radius:9px;padding:6px 11px;font-size:14px;font-weight:600}
 .ctimer button{background:none;border:none;color:var(--teal);font-weight:700;cursor:pointer;font-size:14px}
 .speak{font-size:13px;color:var(--acc);background:var(--soft);border:none;border-radius:9px;padding:5px 10px;margin-top:9px;cursor:pointer}
+.cgroup{margin:14px 16px;background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.cgh{display:flex;align-items:center;gap:10px;padding:13px 16px;font-family:Georgia,serif;font-size:16px;font-weight:600;background:var(--soft);border-bottom:1px solid var(--line)}
+.cgb{margin-left:auto;font-size:10px;font-weight:700;padding:3px 9px;border-radius:999px}
+.cmise{display:flex;flex-wrap:wrap;gap:6px;padding:11px 14px;border-bottom:1px solid var(--soft)}
+.cing{display:flex;align-items:baseline;gap:7px;font-size:13.5px;background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:4px 9px}
+.cing .cq{color:var(--acc);font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.cgroup .cstep{margin:10px 12px}
 .toast{position:fixed;left:50%;bottom:84px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:11px;font-size:13.5px;z-index:60;opacity:0;transition:opacity .25s;pointer-events:none;max-width:90%}
 .toast.on{opacity:.96}
 .modal{position:fixed;inset:0;z-index:55;background:rgba(0,0,0,.35);display:flex;align-items:flex-end}
@@ -177,7 +185,7 @@ function viewDetail(){const r=state.recipe; if(!r) return viewRecipes();
   if(/alkoholfrei/i.test(pr)){pb='<span class="pairbadge">🍹 Alkoholfrei</span><br>';pr=pr.includes(':')?pr.split(':').slice(1).join(':').trim():pr;}
   const comps=r.components.map(c=>{
     const bc=c.timing_class==='make_ahead'?'b-amber':'b-teal';
-    const ings=c.ingredients.map(i=>`<li><span>${esc(i.name)}${i.optional?' <span class="opt">(optional)</span>':''}</span><span class="q">${esc(fmtQty(i.qty,i.unit,sc))}</span></li>`).join('');
+    const ings=c.ingredients.map(i=>`<li><span class="n">${esc(i.name)}${i.optional?' <span class="opt">(optional)</span>':''}</span><span class="q">${esc(fmtQty(i.qty,i.unit,sc))}</span></li>`).join('');
     const steps=c.steps.map(s=>{let t=s.duration_minutes?`<span class="tmr" onclick="startTimer(${s.duration_minutes},event)">⏱ ${s.duration_minutes} min</span>`:'';let temp=s.temperature_c?` <span class="tmr">🔥 ${s.temperature_c}°</span>`:'';return `<li>${esc(s.instruction)}${t}${temp}</li>`;}).join('');
     return `<div class="comp"><div class="ch"><h3>${c.position}. ${esc(c.name)}</h3><span class="badge ${bc}">${esc(c.timing_label||'')}</span></div><div class="cd">${esc(c.descriptor||'')}</div><ul class="ing">${ings}</ul><ol class="steps">${steps}</ol></div>`;
   }).join('');
@@ -234,16 +242,25 @@ function toggleShop(k){const d=store.get('shop_done',{});d[k]=!d[k];store.set('s
 
 /* ---------- COOK MODE ---------- */
 let cookEl=null;
-function openCook(id){const r=byId(id);const flat=[];r.components.forEach(c=>c.steps.forEach((s,si)=>flat.push({cmp:c.name,instr:s.instruction,dur:s.duration_minutes,temp:s.temperature_c})));
-  const dkey='cook_'+id;const done=store.get(dkey,{});
-  const steps=flat.map((s,i)=>`<div class="cstep ${done[i]?'done':''}" id="cs${i}" onclick="toggleCook('${id}',${i})">
-    <div class="n">${done[i]?'✓':(i+1)}</div><div><div class="cmp">${esc(s.cmp)}</div>${esc(s.instr)}
-    ${s.dur?`<div class="ctimer">⏱ <span id="ct${i}">${s.dur}:00</span> <button onclick="event.stopPropagation();runCook(${i},${s.dur})">Start</button></div>`:''}
-    ${s.temp?`<div style="font-size:13px;color:var(--amber);margin-top:7px">🔥 ${s.temp}°C</div>`:''}
-    <button class="speak" onclick="event.stopPropagation();speak('${esc(s.instr).replace(/'/g,"")}')">🔊 Vorlesen</button></div></div>`).join('');
+function openCook(id){const r=byId(id);
+  const base=r.base_servings||2; const sv=state.servings[id]||base; const sc=sv/base;
+  const dkey='cook_'+id; const done=store.get(dkey,{});
+  let total=0; r.components.forEach(c=>c.steps.forEach(()=>total++));
+  let gi=-1;
+  const blocks=r.components.map(c=>{
+    const ings=c.ingredients.map(x=>`<div class="cing"><span class="cq">${esc(fmtQty(x.qty,x.unit,sc))}</span><span>${esc(x.name)}${x.optional?' <span class="opt">opt.</span>':''}</span></div>`).join('');
+    const steps=c.steps.map(s=>{gi++;const i=gi;
+      return `<div class="cstep ${done[i]?'done':''}" id="cs${i}" onclick="toggleCook('${id}',${i})">
+      <div class="n">${done[i]?'✓':(i+1)}</div><div style="flex:1"><div>${esc(s.instruction)}</div>
+      ${s.duration_minutes?`<div class="ctimer">⏱ <span id="ct${i}">${s.duration_minutes}:00</span> <button onclick="event.stopPropagation();runCook(${i},${s.duration_minutes})">Start</button></div>`:''}
+      ${s.temperature_c?`<div style="font-size:13px;color:var(--amber);margin-top:7px">🔥 ${s.temperature_c}°C</div>`:''}
+      <button class="speak" onclick="event.stopPropagation();speak('${esc(s.instruction).replace(/'/g,"")}')">🔊 Vorlesen</button></div></div>`;
+    }).join('');
+    return `<div class="cgroup"><div class="cgh">${c.position}. ${esc(c.name)}<span class="cgb ${c.timing_class==='make_ahead'?'b-amber':'b-teal'}">${esc(c.timing_label||'')}</span></div>${ings?`<div class="cmise">${ings}</div>`:''}${steps}</div>`;
+  }).join('');
   cookEl=document.createElement('div');cookEl.className='cook';
   cookEl.innerHTML=`<div class="top"><h2>${esc(r.title)}</h2><span class="close" onclick="closeCook()">Fertig ✓</span></div>
-    <div style="font-size:12.5px;color:var(--mut2);padding:0 16px">${flat.length} Schritte · tippe zum Abhaken</div>${steps}<div style="height:40px"></div>`;
+    <div style="font-size:12.5px;color:var(--mut2);padding:2px 16px 0">${total} Schritte · ${sv} Portionen · Mengen je Teil oben</div>${blocks}<div style="height:40px"></div>`;
   document.body.appendChild(cookEl);document.body.style.overflow='hidden';
 }
 function closeCook(){if(cookEl){cookEl.remove();cookEl=null;}document.body.style.overflow='';render();}
