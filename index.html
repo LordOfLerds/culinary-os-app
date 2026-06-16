@@ -110,7 +110,8 @@ a{color:inherit}
 .prow .t{flex:1;cursor:pointer;min-width:0}
 .prow .k{font-size:11px;color:var(--mut2)}
 .addslot{margin-top:9px;width:100%;background:var(--soft);border:1px dashed var(--line);color:var(--acc);border-radius:10px;padding:9px;font-size:13px;font-weight:600;cursor:pointer}
-.planbar{margin:12px 14px 0}
+.planbar{margin:12px 14px 0;display:flex;gap:8px}
+.planbar .btn{flex:1}
 /* shopping */
 .aisle{margin:14px 14px 0}
 .aisle h3{font-size:13px;color:var(--acc);text-transform:capitalize;margin-bottom:6px}
@@ -311,6 +312,23 @@ function rmPlan(day,slot){var p=getPlan();if(p[day]){delete p[day][slot];if(!Obj
 function suggestWeek(){if(!confirm('Leere Tage mit je 1 Vorschlag füllen?'))return;var p=getPlan();
   DAYS.forEach(function(d,i){if(p[i]&&Object.keys(p[i]).length)return;var slot=SLOT_ORDER[Math.floor(Math.random()*6)];var c=R.filter(function(r){return r.slot===slot;});if(c.length){p[i]=p[i]||{};p[i][slot]=c[Math.floor(Math.random()*c.length)].id;}});
   store.set('plan',p);render();}
+function autoPlanWeek(){
+  if(!confirm('Ganze Woche automatisch planen? Überschreibt den aktuellen Plan.'))return;
+  var rot=['Beef','Chicken-1','Fish','Veg-Mi','Chicken-2','Cheat','Veg-So'];
+  var fav=getFav();
+  var soonN=(P||[]).filter(function(it){return it.days!==null&&it.days<=6;}).map(function(it){return (it.name||'').toLowerCase();}).filter(function(n){return n.length>=4;});
+  function score(r){var s=fav[r.id]?10:0;var ing=[];(r.components||[]).forEach(function(c){(c.ingredients||[]).forEach(function(i){ing.push((i.name||'').toLowerCase());});});soonN.forEach(function(n){if(ing.some(function(x){return x.indexOf(n)>=0||(x.length>=4&&n.indexOf(x)>=0);}))s+=3;});return s;}
+  var used={},plan={};
+  rot.forEach(function(slot,day){
+    var cands=R.filter(function(r){return r.slot===slot&&!used[r.id];});
+    if(!cands.length)cands=R.filter(function(r){return !used[r.id];});
+    if(!cands.length)return;
+    var mx=Math.max.apply(null,cands.map(score));
+    var top=cands.filter(function(c){return score(c)===mx;});
+    var pick=top[Math.floor(Math.random()*top.length)];
+    used[pick.id]=1;plan[day]={};plan[day][slot]=pick.id;
+  });
+  store.set('plan',plan);render();}
 function viewPlan(){var p=getPlan();
   var days=DAYS.map(function(d,i){var ds=p[i]||{};
     var rows=SLOT_ORDER.filter(function(s){return ds[s];}).map(function(s){var r=byId(ds[s]);if(!r)return'';
@@ -318,7 +336,7 @@ function viewPlan(){var p=getPlan();
     var kc=dayKcal(ds);
     return '<div class="day"><h3>'+d+(kc?'<span class="dk">'+kc+' kcal</span>':'')+'</h3>'+(rows||'<div class="empty">— noch nichts geplant —</div>')+'<button class="addslot" onclick="pickDay('+i+')">＋ Gericht in Slot</button></div>';}).join('');
   var total=planIds(p).length;
-  return '<div class="topbar"><h1>Wochenplan</h1><div class="sub">'+total+' Gerichte · Slots wie in Notion · ＋ pro Tag</div></div><div class="planbar"><button class="btn btn-s" onclick="suggestWeek()">🎲 Ganze Woche vorschlagen</button></div>'+days+'<div style="height:20px"></div>';
+  return '<div class="topbar"><h1>Wochenplan</h1><div class="sub">'+total+' Gerichte · Slots wie in Notion · ＋ pro Tag</div></div><div class="planbar"><button class="btn btn-p" onclick="autoPlanWeek()">✨ Auto-Woche</button><button class="btn btn-s" onclick="suggestWeek()">🎲 Leere füllen</button></div>'+days+'<div style="height:20px"></div>';
 }
 
 /* ---------- SHOPPING ---------- */
