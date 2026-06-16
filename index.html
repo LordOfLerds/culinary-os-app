@@ -126,6 +126,15 @@ a{color:inherit}
 .popen{font-weight:400;font-size:10.5px;color:var(--mut2);background:var(--soft);border:1px solid var(--line);border-radius:6px;padding:1px 6px;margin-left:6px}
 .pq{flex:0 0 auto;color:var(--mut);font-variant-numeric:tabular-nums;font-size:13px}
 .pmhd{flex:0 0 auto;min-width:60px;text-align:right;font-size:12px;font-weight:700;font-variant-numeric:tabular-nums}
+.useup{margin:12px 14px 0;background:linear-gradient(180deg,#fff7ed,#fffdfa);border:1px solid #f0d9bf;border-radius:14px;padding:12px 14px}
+.useup .uh{font-size:13px;font-weight:700;color:#c2680f}
+.useup .uitems{font-size:12.5px;color:var(--mut);margin-top:4px;line-height:1.55}
+.useup .ud{color:#e67e22;font-weight:600;font-size:11px}
+.useup .urecs{margin-top:10px;display:flex;flex-direction:column;gap:7px}
+.useup .urec{display:flex;align-items:center;gap:9px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 11px;cursor:pointer;font-size:14px}
+.useup .us{flex:0 0 auto;background:#c2680f;color:#fff;font-size:11px;font-weight:700;border-radius:6px;padding:1px 7px}
+.useup .ut{flex:1;min-width:0;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.useup .uk{flex:0 0 auto;color:var(--mut2);font-size:12px;font-variant-numeric:tabular-nums}
 /* cook */
 .cook{position:fixed;inset:0;z-index:50;background:var(--bg);overflow-y:auto;padding:0 0 40px}
 .cook .top{position:sticky;top:0;background:var(--bg);display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line)}
@@ -312,13 +321,23 @@ function toggleShop(k){const d=store.get('shop_done',{});d[k]=!d[k];store.set('s
 let P=null;
 async function loadPantry(){try{const r=await SB.rpc('app_pantry');P=(r&&r.data)||[];}catch(e){P=[];}render();}
 function pAmpel(d){if(d===null||d===undefined)return['',''];if(d<0)return['#c0392b','abgelaufen'];if(d===0)return['#e67e22','heute'];if(d===1)return['#e67e22','morgen'];if(d<=6)return['#d4a017',d+' Tage'];return['#3a7d44',d+' Tage'];}
+function recipesUsing(items){var names=items.map(function(it){return (it.name||'').toLowerCase().trim();}).filter(function(n){return n.length>=3;});
+  if(!names.length||!R.length)return[];
+  var scored=R.map(function(r){var ing=[];(r.components||[]).forEach(function(c){(c.ingredients||[]).forEach(function(i){ing.push((i.name||'').toLowerCase());});});
+    var hits=names.filter(function(n){return ing.some(function(x){return (n.length>=4&&x.indexOf(n)>=0)||(x.length>=4&&n.indexOf(x)>=0);});});
+    return {r:r,hits:hits.length};}).filter(function(s){return s.hits>0;});
+  scored.sort(function(a,b){return b.hits-a.hits||((a.r.total_minutes||999)-(b.r.total_minutes||999));});return scored.slice(0,4);}
 function viewPantry(){
   if(P===null){loadPantry();return `<div class="topbar"><h1>Vorrat</h1><div class="sub">lädt…</div></div><div class="empty-big">Bestand wird geladen…</div>`;}
   if(!P.length)return `<div class="topbar"><h1>Vorrat</h1></div><div class="empty-big">Noch kein Vorrat erfasst.<br>Belege importieren oder Artikel anlegen — dann erscheint hier dein Bestand mit MHD-Ampel.</div>`;
   const LOC={kuehlschrank:'❄️ Kühlschrank',gefrier:'🧊 Gefrierfach',speis:'🗄 Speis / Vorrat',gewuerzregal:'🧂 Gewürze',sonstige:'📦 Sonstiges'};
-  const soon=P.filter(it=>it.days!==null&&it.days<=6).length;
+  const soonItems=P.filter(it=>it.days!==null&&it.days<=6).sort((a,b)=>a.days-b.days);const soon=soonItems.length;
   const g={};P.forEach(it=>{const k=it.location||'sonstige';(g[k]=g[k]||[]).push(it);});
   let h=`<div class="topbar"><h1>Vorrat</h1><div class="sub">${P.length} Artikel${soon?` · <b style="color:#e67e22">${soon} bald fällig</b>`:''} · MHD-Ampel</div></div>`;
+  if(soonItems.length){var recs=recipesUsing(soonItems);
+    h+='<div class="useup"><div class="uh">🔥 Use-it-up · zuerst kochen</div><div class="uitems">'+soonItems.map(function(it){return esc(it.name)+' <span class="ud">'+pAmpel(it.days)[1]+'</span>';}).join(' · ')+'</div>';
+    h+=recs.length?('<div class="urecs">'+recs.map(function(s){var r=s.r;return '<div class="urec" onclick="openRecipe(\''+r.id+'\')"><span class="us">'+s.hits+'×</span><span class="ut">'+esc(r.title)+'</span><span class="uk">'+((r.macros_per_serving&&r.macros_per_serving.kcal)||'?')+' kcal</span></div>';}).join('')+'</div>'):'<div class="uitems" style="color:var(--mut2)">Keine passenden Rezepte im Buch.</div>';
+    h+='</div>';}
   Object.keys(g).forEach(loc=>{
     h+=`<div class="psec"><div class="pgh">${LOC[loc]||esc(loc)}</div><ul class="plist">`;
     g[loc].forEach(it=>{const a=pAmpel(it.days);
