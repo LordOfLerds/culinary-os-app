@@ -189,6 +189,8 @@ a{color:inherit}
 .hrow .hn{flex:1;min-width:0;font-size:14px;font-weight:600}
 .hrow .hmeta{font-size:11px;color:var(--mut2);font-weight:400;margin-top:1px}
 .hrow .hpr{flex:0 0 auto;font-weight:700;color:var(--acc);font-variant-numeric:tabular-nums}
+.statcard{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 13px;margin-bottom:10px}
+.statcard .sclbl{font-size:12px;color:var(--mut2);font-weight:600;margin-bottom:8px}
 .useup{margin:12px 14px 0;background:linear-gradient(180deg,#fff7ed,#fffdfa);border:1px solid #f0d9bf;border-radius:14px;padding:12px 14px}
 .useup .uh{font-size:13px;font-weight:700;color:#c2680f}
 .useup .uitems{font-size:12.5px;color:var(--mut);margin-top:4px;line-height:1.55}
@@ -283,6 +285,12 @@ function logCook(rid,sv,kcal){var l=getCookLog();l.push({rid:rid,d:new Date().to
 function cookCount(rid){return getCookLog().filter(function(c){return c.rid===rid;}).length;}
 function lastCook(rid){var cs=getCookLog().filter(function(c){return c.rid===rid;});return cs.length?cs[cs.length-1].d:null;}
 function markCooked(){var r=state.recipe;if(!r)return;var rid=r.rid||r.id;var base=r.base_servings||2;var sv=state.servings[r.id]||base;var kc=Math.round(((r.macros_per_serving&&r.macros_per_serving.kcal)||0)*sv);logCook(rid,sv,kc);toast('✓ als gekocht vermerkt ('+cookCount(rid)+'×)');render();}
+function byRid(rid){return R.find(function(r){return (r.rid||r.id)===rid;});}
+function barChart(data,goal){if(!data||!data.length)return '';var vals=data.map(function(d){return d.val;});var max=Math.max.apply(null,[goal||0,1].concat(vals));var W=320,H=84,n=data.length,gap=W/n,bw=Math.min(gap*0.62,26);
+  var bars=data.map(function(d,i){var h=Math.round((d.val/max)*H);var x=i*gap+(gap-bw)/2;return '<rect x="'+x.toFixed(1)+'" y="'+(H-h)+'" width="'+bw.toFixed(1)+'" height="'+Math.max(h,d.val>0?2:0)+'" rx="2" fill="var(--acc)"/>';}).join('');
+  var gl='';if(goal){var gy=H-Math.round((goal/max)*H);gl='<line x1="0" y1="'+gy+'" x2="'+W+'" y2="'+gy+'" stroke="var(--teal)" stroke-dasharray="4 3" stroke-width="1.5"/><text x="'+W+'" y="'+(gy-3>8?gy-3:10)+'" font-size="9" fill="var(--teal)" text-anchor="end">Ziel</text>';}
+  var labs=data.map(function(d,i){if(n>10&&(i%2))return '';var x=i*gap+gap/2;return '<text x="'+x.toFixed(1)+'" y="'+(H+12)+'" font-size="8.5" fill="var(--mut2)" text-anchor="middle">'+esc(d.label)+'</text>';}).join('');
+  return '<svg viewBox="0 0 '+W+' '+(H+16)+'" width="100%" style="max-width:340px;height:auto">'+gl+bars+labs+'</svg>';}
 function dinnerSuggestions(){var fav=getFav(),recent=getRecent(),out=[],used={};
   function add(r,reason){if(r&&!used[r.id]){used[r.id]=1;out.push({r:r,reason:reason});}}
   if(typeof P!=='undefined'&&P&&P.length){var soon=P.filter(function(it){return it.days!=null&&it.days<=6;});
@@ -511,6 +519,19 @@ function viewPantry(){
     HIST.forEach(function(it){var meta=[];if(it.qty!=null)meta.push(esc(fmtQty(it.qty,it.unit||'',1)));if(it.buys)meta.push(it.buys+'× gekauft');if(it.consumed)meta.push('−'+esc(fmtQty(it.consumed,'',1))+' verbraucht');
       h+='<li class="hrow"><div class="hn">'+esc(it.name)+'<div class="hmeta">'+meta.join(' · ')+'</div></div>'+(it.last_price!=null?'<span class="hpr">'+(+it.last_price).toFixed(2)+' €</span>':'')+'</li>';});
     h+='</ul></div>';}
+  if(EATERS===null)loadEaters();
+  var log=getCookLog();
+  var days=[];for(var dd=13;dd>=0;dd--){var dt=new Date();dt.setDate(dt.getDate()-dd);days.push(dt.toISOString().slice(0,10));}
+  var kbd={};log.forEach(function(c){kbd[c.d]=(kbd[c.d]||0)+(+c.kcal||0);});
+  var kdata=days.map(function(dy){return {label:dy.slice(8),val:kbd[dy]||0};});
+  var byR={};log.forEach(function(c){byR[c.rid]=(byR[c.rid]||0)+1;});
+  var top=Object.keys(byR).map(function(rid){var r=byRid(rid);return {n:byR[rid],t:r?r.title:'?'};}).sort(function(a,b){return b.n-a.n;}).slice(0,5);
+  var gtot=(HIST||[]).reduce(function(a,x){return a+(+x.total_spent||0);},0);
+  h+='<div class="psec"><div class="pgh">📊 Statistik</div>';
+  h+='<div class="statcard"><div class="sclbl">Kalorien · letzte 14 Tage'+(goalKcal()?' · Ziel '+goalKcal()+'/Tag':'')+'</div>'+(log.length?barChart(kdata,goalKcal()):'<div class="chathint">Noch keine Koch-Einträge — tippe in einem Rezept „✓ Heute gekocht", dann füllt sich der Verlauf.</div>')+'</div>';
+  if(top.length)h+='<div class="statcard"><div class="sclbl">Am häufigsten gekocht</div>'+top.map(function(t){return '<div class="hrow"><div class="hn">'+esc(t.t)+'</div><span class="hpr">'+t.n+'×</span></div>';}).join('')+'</div>';
+  h+='<div class="statcard"><div class="sclbl">Einkauf gesamt</div><div class="hrow"><div class="hn">'+(HIST?HIST.length:0)+' Artikel erfasst</div><span class="hpr">'+gtot.toFixed(2)+' €</span></div></div>';
+  h+='</div>';
   return h+`<div style="height:24px"></div>`;
 }
 
