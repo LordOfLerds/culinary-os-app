@@ -199,18 +199,26 @@ a{color:inherit}
 .shrec{margin-top:5px;font-size:11px;color:var(--mut2)}
 .shreclink{color:var(--acc);cursor:pointer;border-bottom:1px dotted var(--acc)}
 .shl li.have .shnm{color:var(--mut)}
-.cit{display:flex;gap:10px;align-items:flex-start;background:var(--card);border:1px solid var(--line);border-radius:13px;padding:10px 12px;margin-bottom:9px}
-.cit .pic{width:32px;height:32px;border-radius:9px;background:var(--soft);display:flex;align-items:center;justify-content:center;font-size:16px;flex:0 0 auto}
-.cit .mid{flex:1;min-width:0}
-.cit .ing{font-size:10.5px;color:var(--mut2);text-transform:uppercase;letter-spacing:.02em}
-.cit .prod{font-size:14px;font-weight:700;line-height:1.25;margin-top:1px}
-.cit .cmeta{font-size:11px;color:var(--mut);margin-top:3px}
-.cit .right{flex:0 0 auto;text-align:right}
-.cit .cpr{font-size:14px;font-weight:800;color:var(--acc);font-variant-numeric:tabular-nums}
+.cit{display:flex;gap:11px;align-items:stretch;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 11px;margin-bottom:9px}
+.cit .pic{width:56px;height:56px;border-radius:11px;background:#fff;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:22px;flex:0 0 auto;overflow:hidden;position:relative}
+.cit .pic img{width:100%;height:100%;object-fit:contain}
+.cit .pic .pkb{position:absolute;right:-3px;bottom:-3px;background:var(--acc);color:#fff;font-size:10px;font-weight:800;min-width:17px;height:17px;border-radius:9px;display:flex;align-items:center;justify-content:center;padding:0 4px;border:2px solid var(--card);font-variant-numeric:tabular-nums}
+.cit .mid{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center}
+.cit .ing{font-size:10px;color:var(--mut2);text-transform:uppercase;letter-spacing:.03em;font-weight:700;display:flex;gap:5px;align-items:center}
+.cit .ing .need{color:var(--acc);background:var(--soft);border-radius:5px;padding:0 5px;text-transform:none;letter-spacing:0;font-weight:700}
+.cit .prod{font-size:14px;font-weight:700;line-height:1.22;margin-top:2px;color:var(--ink)}
+.cit .cmeta{font-size:11px;color:var(--mut);margin-top:3px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.cit .cmeta .psz{font-weight:700;color:var(--mut2)}
+.cit .right{flex:0 0 auto;text-align:right;display:flex;flex-direction:column;justify-content:space-between;align-items:flex-end}
+.cit .cpr{font-size:15px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums}
+.cit .cpr .ppk{display:block;font-size:9.5px;font-weight:700;color:var(--mut);margin-top:1px}
 .cit .cacts{display:flex;gap:6px;justify-content:flex-end;margin-top:6px}
-.cit .cact{font-size:13px;background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:3px 8px;cursor:pointer;color:var(--acc);font-weight:600}
+.cit .cact{font-size:14px;background:var(--soft);border:1px solid var(--line);border-radius:9px;width:30px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--acc)}
+.cit .cact:active{transform:scale(.92)}
+.cit.miss{border-style:dashed}
+.cit.miss .pic{color:var(--mut)}
 .cit.miss .prod{font-weight:600;color:var(--mut)}
-.bbio{background:var(--tealbg);color:var(--teal);font-weight:700;font-size:9px;padding:1px 5px;border-radius:5px;vertical-align:middle}
+.bbio{background:var(--tealbg);color:var(--teal);font-weight:800;font-size:9px;padding:1px 5px;border-radius:5px;vertical-align:middle;letter-spacing:.02em}
 .bpin{font-size:10px}
 .bwarn{background:var(--amberbg);color:var(--amber);font-weight:700;font-size:9px;padding:1px 5px;border-radius:5px;vertical-align:middle}
 .cartctl{display:flex;gap:8px;align-items:center;margin:10px 14px 2px}
@@ -221,6 +229,18 @@ a{color:inherit}
 .aitag{font-size:10px;font-weight:700;color:var(--teal);background:var(--tealbg);border-radius:6px;padding:1px 6px;margin-left:4px}
 .prodlnk{color:inherit;text-decoration:none;border-bottom:1px dotted var(--acc)}
 .oth{color:var(--teal);font-weight:700}
+.csw{display:flex;gap:11px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:9px 11px;cursor:pointer;margin-bottom:8px}
+.csw:active{transform:scale(.99)}
+.csw.sel{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc) inset}
+.csw .ct{width:48px;height:48px;border-radius:10px;background:#fff;border:1px solid var(--line);flex:0 0 auto;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:18px}
+.csw .ct img{width:100%;height:100%;object-fit:contain}
+.csw .cn{flex:1;min-width:0}
+.csw .cnt{font-size:13.5px;font-weight:700;line-height:1.22}
+.csw .cnm{font-size:11.5px;color:var(--mut);margin-top:2px;display:flex;gap:6px;flex-wrap:wrap}
+.csw .cpx{font-size:15px;font-weight:800;color:var(--ink);text-align:right;flex:0 0 auto;font-variant-numeric:tabular-nums}
+.spgrp{font-size:11px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.03em;margin:6px 0 4px}
+.cfbar{margin:8px 14px 0;padding:11px 14px;background:linear-gradient(180deg,var(--tealbg),var(--card));border:1px solid var(--line);border-radius:13px;font-size:12px;color:var(--teal);display:flex;gap:9px;align-items:flex-start}
+.cfbar b{color:var(--ink)}
 .chint{display:flex;gap:9px;align-items:flex-start;background:var(--amberbg);border:1px solid #f0d9b0;border-radius:12px;padding:10px 12px;margin-bottom:11px}
 .chint .ic{font-size:15px}
 .chint .hx{font-size:12px;color:var(--amber);line-height:1.45}
@@ -651,7 +671,8 @@ async function buildCart(){if(PREFS===null)await loadPrefs();if(P===null)loadPan
   if(!items.length){CART={empty:(planIds(getPlan()).length?'covered':'noplan'),_sig:sig};render();return;}
   CART={loading:true,n:items.length};render();   // Fortschritt anzeigen
   try{
-    var inv=SB.functions?await SB.functions.invoke('cart_match_ai',{body:{items:items}}):{error:'nofn'};
+    var pf={pins:(PREFS&&PREFS.pins)||[],bio_level:(PREFS&&PREFS.bio_level)||'near'};
+    var inv=SB.functions?await SB.functions.invoke('cart_match_ai',{body:{items:items,prefs:pf}}):{error:'nofn'};
     if(inv&&!inv.error&&inv.data&&Array.isArray(inv.data.items)){
       CART={raw:inv.data.items,ai:!!inv.data.ai,note:inv.data.note,qmap:items,_sig:sig};
     }else{ // Fallback: direkter Trigram-RPC
@@ -668,13 +689,19 @@ let cartGroup='art', cartQ='';
 function setCartGroup(g){cartGroup=g;render();}
 function cartSearchInput(v){cartQ=v;var b=document.getElementById('cartBody');if(b)b.innerHTML=cartBodyHtml();}
 function billaUrl(c){return c&&c.url?('https://shop.billa.at/produkte/'+c.url):(c&&c.store==='billa'?'https://shop.billa.at':'https://www.interspar.at/shop/lebensmittel/');}
-function cartItemCard(it,idx,store){var ch=chosenFor(it);
-  if(!ch)return '<div class="cit miss"><div class="pic">🔎</div><div class="mid"><div class="ing">'+esc(it.ing)+' · '+esc(fmtQty(it.qty,it.unit||'',1))+'</div><div class="prod">kein passendes Produkt</div></div><div class="right"><span class="cact" onclick="cartSwap('+idx+')">suchen</span></div></div>';
-  var ob=otherStoreBest(it,store);var hint='';if(ob&&ob.price<ch.price&&ch.unit_price!=null&&ob.unit_price!=null&&ob.unit_price<ch.unit_price){hint='<span class="oth">'+esc(ob.store.toUpperCase())+' −'+(ch.price-ob.price).toFixed(2)+'€</span>';}
+function packsFor(it){return Math.max(1,(+it.packs||1));}
+function lineTotal(it,ch){return ch?(+ch.price||0)*packsFor(it):0;}
+function picHtml(ch,pk){var img=ch&&ch.image?'<img src="'+esc(ch.image)+'" loading="lazy" onerror="this.style.display=\'none\'">':'';var fb=ch&&ch.bio?'🌿':'🛒';var badge=pk>1?'<span class="pkb">'+pk+'×</span>':'';return '<div class="pic">'+fb+img+badge+'</div>';}
+function cartItemCard(it,idx,store){var ch=chosenFor(it);var need=esc(fmtQty(it.qty,it.unit||'',1));
+  if(!ch)return '<div class="cit miss"><div class="pic">🔎</div><div class="mid"><div class="ing">'+esc(it.ing)+' <span class="need">'+need+'</span></div><div class="prod">kein passendes Produkt</div></div><div class="right"><div class="cacts"><span class="cact" onclick="cartSwap('+idx+')" title="suchen">🔎</span></div></div></div>';
+  var pk=packsFor(it);
+  var ob=otherStoreBest(it,store);var hint='';if(ob&&ob.price<ch.price&&ch.unit_price!=null&&ob.unit_price!=null&&ob.unit_price<ch.unit_price){hint='<span class="oth">'+esc((ob.store||'').toUpperCase())+' −'+(ch.price-ob.price).toFixed(2)+'€</span>';}
   var pinned=(PREFS.pins||[]).some(function(p){return p&&ch.name.toLowerCase().indexOf(p.toLowerCase())>=0;});
   var unsure=ch.sim!=null&&ch.sim<SIM_OK&&!(CART&&CART.ai);
-  var badges='';if(ch.bio)badges+='<span class="bbio">BIO</span>';if(pinned)badges+='<span class="bpin">📌</span>';if(unsure)badges+='<span class="bwarn">⚠ prüfen</span>';
-  return '<div class="cit"><div class="pic">'+(ch.bio?'🌿':'🛒')+'</div><div class="mid"><div class="ing">'+esc(it.ing)+' · '+esc(fmtQty(it.qty,it.unit||'',1))+'</div><div class="prod"><a class="prodlnk" href="'+billaUrl(ch)+'" target="_blank" rel="noopener">'+esc(ch.name)+'</a> '+badges+'</div><div class="cmeta">'+(ch.unit_price!=null?ch.unit_price.toFixed(2)+' €/'+esc(ch.unit_base||''):'')+' · '+esc(ch.store.toUpperCase())+(hint?' · '+hint:'')+'</div></div><div class="right"><div class="cpr">'+(+ch.price).toFixed(2)+' €</div><div class="cacts"><span class="cact" onclick="cartPin('+idx+')" title="Marke merken">📌</span><span class="cact" onclick="cartSwap('+idx+')" title="tauschen">↔</span></div></div></div>';}
+  var badges='';if(ch.bio)badges+=' <span class="bbio">BIO</span>';if(pinned)badges+=' <span class="bpin">📌</span>';if(unsure)badges+=' <span class="bwarn">⚠ prüfen</span>';
+  var meta=[];if(ch.sizeLabel)meta.push('<span class="psz">'+esc(ch.sizeLabel)+'</span>');if(ch.unit_price!=null)meta.push(ch.unit_price.toFixed(2)+' €/'+esc(ch.unit_base||''));if(hint)meta.push(hint);
+  var lt=lineTotal(it,ch);
+  return '<div class="cit">'+picHtml(ch,pk)+'<div class="mid"><div class="ing">'+esc(it.ing)+' <span class="need">'+need+'</span></div><div class="prod"><a class="prodlnk" href="'+billaUrl(ch)+'" target="_blank" rel="noopener">'+esc(ch.name)+'</a>'+badges+'</div><div class="cmeta">'+meta.join(' · ')+'</div></div><div class="right"><div class="cpr">'+lt.toFixed(2)+' €'+(pk>1?'<span class="ppk">'+pk+'× '+(+ch.price).toFixed(2)+'</span>':'')+'</div><div class="cacts"><span class="cact" onclick="cartPin('+idx+')" title="Marke merken">📌</span><span class="cact" onclick="cartSwap('+idx+')" title="tauschen">↔</span></div></div></div>';}
 function cartBodyHtml(){var raw=CART.raw||[];var store=(PREFS&&PREFS.staple_store)||'billa';var q=(cartQ||'').toLowerCase().trim();
   var qmap={};((CART&&CART.qmap)||[]).forEach(function(x){qmap[(x.name||'').toLowerCase()]=x;});
   var rows=raw.map(function(it,idx){return {it:it,idx:idx,meta:qmap[(it.ing||'').toLowerCase()]||{}};});
@@ -696,31 +723,65 @@ function viewCart(){
   if(CART.empty)return '<div class="topbar"><h1>Warenkorb-Vorschlag</h1></div><div class="empty-big">'+(CART.empty==='noplan'?'Noch nichts geplant.<br>Füge im <b>Plan</b> Gerichte hinzu — dann stelle ich den Korb zusammen.':'Alles schon im Vorrat ✓<br>Nichts zu kaufen für den aktuellen Plan.')+'</div>'+navBackShop();
   var raw=CART.raw||[];var store=(PREFS&&PREFS.staple_store)||'billa';
   if(!raw.length)return '<div class="topbar"><h1>Warenkorb-Vorschlag</h1></div><div class="empty-big">Keine Treffer gefunden.</div>'+navBackShop();
-  var total=0,miss=0,savings=0,saveItems=0;
-  raw.forEach(function(it){var ch=chosenFor(it);if(!ch){miss++;return;}total+=(+ch.price||0);var ob=otherStoreBest(it,store);if(ob&&ob.price<ch.price){savings+=(ch.price-ob.price);saveItems++;}});
-  var aiBadge=CART.ai?'<span class="aitag">✨ KI-Match</span>':(CART.note==='no_key'?'<span class="bwarn">KI-Key fehlt → Basis-Match</span>':'');
-  var sub=raw.length+' Artikel · '+store.toUpperCase()+' · '+total.toFixed(2)+' €'+(miss?' · '+miss+' offen':'');
+  var total=0,miss=0,savings=0,saveItems=0,packsTot=0;
+  raw.forEach(function(it){var ch=chosenFor(it);if(!ch){miss++;return;}total+=lineTotal(it,ch);packsTot+=packsFor(it);var ob=otherStoreBest(it,store);if(ob&&ob.price<ch.price){savings+=(ch.price-ob.price);saveItems++;}});
+  var aiBadge=CART.ai?'<span class="aitag">✨ KI-Match</span>':(CART.note==='no_key'?'<span class="bwarn">KI-Key fehlt → Basis-Match</span>':(CART.note&&CART.note.indexOf('gemini')===0?'<span class="bwarn">KI kurz überlastet → Basis-Match</span>':''));
+  var sub=raw.length+' Zutaten · '+packsTot+' Packg. · '+total.toFixed(2)+' €'+(miss?' · '+miss+' offen':'');
   var banner=(saveItems>=5&&savings>8&&savings>total*0.15)?'<div class="psec"><div class="chint"><span class="ic">💡</span><span class="hx"><b>Zweitmarkt lohnt sich:</b> '+saveItems+' Artikel wären woanders ~'+savings.toFixed(2)+' € billiger.</span></div></div>':'';
   return '<div class="topbar"><h1>🛒 Warenkorb</h1><div class="sub">'+sub+' '+aiBadge+'</div></div>'
     +'<div class="cartctl"><div class="seg2"><span class="'+(cartGroup==='art'?'on':'')+'" onclick="setCartGroup(\'art\')">nach Art</span><span class="'+(cartGroup==='tag'?'on':'')+'" onclick="setCartGroup(\'tag\')">nach Tag</span></div><input class="search csearch" placeholder="🔎 Artikel suchen…" value="'+esc(cartQ)+'" oninput="cartSearchInput(this.value)" autocomplete="off"></div>'
     +banner+'<div id="cartBody">'+cartBodyHtml()+'</div>'
     +'<div class="sum"><span class="l">'+store.toUpperCase()+'-Korb gesamt</span><span class="v">'+total.toFixed(2)+' €</span></div>'
-    +'<div class="btnrow"><button class="btn btn-s" onclick="state.view=\'shopping\';render()">‹ Liste</button><button class="btn btn-s" onclick="refreshCart()" title="neu matchen">↻</button><button class="btn btn-s" onclick="window.open(\'https://shop.billa.at\',\'_blank\')">Billa ↗</button><button class="btn btn-p" onclick="cartCheckout()">✓ Eingekauft</button></div>'
-    +'<div class="chathint" style="padding:10px 16px">Tippe ein Produkt → öffnet die Billa-Seite zum Reinlegen. ↔ tauschen, 📌 Marke merken. Bestellen & zahlen machst du selbst.</div><div style="height:30px"></div>';
+    +'<div class="cfbar"><span>🛒</span><span><b>Billa-Korb füllen:</b> Tippe „In Billa-Korb" — ich lege alle Produkte in den korrekten Mengen in deinen Click&Collect-Korb. <b>Bezahlen & Abholzeit wählst du selbst</b> im Billa-Checkout.</span></div>'
+    +'<div class="btnrow"><button class="btn btn-s" onclick="state.view=\'shopping\';render()">‹ Liste</button><button class="btn btn-s" onclick="refreshCart()" title="neu matchen">↻</button><button class="btn btn-p" onclick="cartFill()">🛒 In Billa-Korb</button></div>'
+    +'<div class="btnrow" style="margin-top:8px"><button class="btn btn-s" onclick="window.open(\'https://shop.billa.at\',\'_blank\')">Billa öffnen ↗</button><button class="btn btn-s" onclick="cartCheckout()">✓ Schon eingekauft</button></div>'
+    +'<div class="chathint" style="padding:10px 16px">Einzelnes Produkt tippen → öffnet die Billa-Seite. ↔ tauschen · 📌 Marke merken. „✓ Schon eingekauft" bucht den Korb in deinen Vorrat (MHD ab heute).</div><div style="height:30px"></div>';
 }
 function navBackShop(){return '<div class="btnrow"><button class="btn btn-s" onclick="state.view=\'shopping\';render()">‹ zurück zur Liste</button></div>';}
 function cartSwap(idx){var it=(CART&&CART.raw||[])[idx];if(!it)return;var ex=document.getElementById('csEl');if(ex)ex.remove();
+  var cur=chosenFor(it);var curId=cur&&cur.id;
   var cands=(it.cands||[]).slice().sort(function(a,b){return scoreCand(b)-scoreCand(a)||((a.unit_price==null?9e9:a.unit_price)-(b.unit_price==null?9e9:b.unit_price));});
   var bioC=cands.filter(function(c){return c.bio;}),other=cands.filter(function(c){return !c.bio;});
-  function card(c){return '<div class="spc" onclick="cartChoose('+idx+',\''+esc(c.id)+'\')"><div class="spt">'+(c.bio?'🌿 ':'')+esc(c.name)+'</div><div class="spm">'+(+c.price).toFixed(2)+' € · '+(c.unit_price!=null?c.unit_price.toFixed(2)+' €/'+esc(c.unit_base||''):'')+' · <b>'+esc(c.store.toUpperCase())+'</b></div></div>';}
+  function card(c){var sel=(curId===c.id)?' sel':'';var img=c.image?'<img src="'+esc(c.image)+'" loading="lazy" onerror="this.style.display=\'none\'">':'';
+    var nm=[];if(c.sizeLabel)nm.push('<span>'+esc(c.sizeLabel)+'</span>');if(c.unit_price!=null)nm.push('<span>'+c.unit_price.toFixed(2)+' €/'+esc(c.unit_base||'')+'</span>');if(c.promo)nm.push('<span class="oth">Aktion</span>');
+    return '<div class="csw'+sel+'" onclick="cartChoose('+idx+',\''+esc(c.id)+'\')"><div class="ct">'+(c.bio?'🌿':'🛒')+img+'</div><div class="cn"><div class="cnt">'+esc(c.name)+(c.bio?' <span class="bbio">BIO</span>':'')+(sel?' ✓':'')+'</div><div class="cnm">'+nm.join('')+'</div></div><div class="cpx">'+(+c.price).toFixed(2)+' €</div></div>';}
   var el=document.createElement('div');el.className='chatov';el.id='csEl';
-  el.innerHTML='<div class="chathead"><b>↔ '+esc(it.ing)+'</b><span class="close" onclick="(function(){var e=document.getElementById(\'csEl\');if(e)e.remove();})()">Abbrechen ✕</span></div><div class="chatbody">'
-    +(bioC.length?'<div class="spgrp">Bio / deine Marken zuerst</div>'+bioC.map(card).join(''):'')
-    +(other.length?'<div class="spgrp">Günstiger / weitere</div>'+other.map(card).join(''):'')
-    +(cands.length?'':'<div class="chathint">Keine Treffer im Sortiment.</div>')+'<div style="height:20px"></div></div>';
+  el.innerHTML='<div class="chathead"><b>↔ '+esc(it.ing)+' · '+esc(fmtQty(it.qty,it.unit||'',1))+'</b><span class="close" onclick="(function(){var e=document.getElementById(\'csEl\');if(e)e.remove();})()">Fertig ✕</span></div><div class="chatbody">'
+    +(bioC.length?'<div class="spgrp">🌿 Bio / deine Marken</div>'+bioC.map(card).join(''):'')
+    +(other.length?'<div class="spgrp">Weitere / günstiger</div>'+other.map(card).join(''):'')
+    +(cands.length?'':'<div class="chathint">Keine Treffer im Sortiment. Tippe oben den Produktnamen anders oder kauf manuell.</div>')+'<div style="height:20px"></div></div>';
   document.body.appendChild(el);}
 function cartChoose(idx,id){var it=(CART&&CART.raw||[])[idx];if(!it)return;PREFS.overrides=PREFS.overrides||{};PREFS.overrides[(it.ing||'').toLowerCase()]=id;savePrefs();var e=document.getElementById('csEl');if(e)e.remove();render();}
 function cartPin(idx){var it=(CART&&CART.raw||[])[idx];if(!it)return;var ch=chosenFor(it);if(!ch)return;var b=brandToken(ch.name);if(!b){toast('Keine Marke erkannt');return;}PREFS.pins=PREFS.pins||[];if(PREFS.pins.indexOf(b)<0)PREFS.pins.push(b);savePrefs();toast('📌 '+b+' gemerkt');render();}
+async function cartFill(){
+  if(typeof SB==='undefined'||!SB||!SB.from){toast('Nur in der Live-App');return;}
+  var raw=(CART&&CART.raw)||[];var store=(PREFS&&PREFS.staple_store)||'billa';
+  var items=[],total=0,packsTot=0;
+  raw.forEach(function(it){var ch=chosenFor(it);if(!ch||!ch.sku)return;var pk=packsFor(it);total+=lineTotal(it,ch);packsTot+=pk;
+    items.push({sku:ch.sku,name:ch.name,ing:it.ing,qty:it.qty,unit:it.unit,packs:pk,price:ch.price,url:ch.url,image:ch.image,bio:!!ch.bio});});
+  if(!items.length){toast('Keine Produkte zum Füllen');return;}
+  total=Math.round(total*100)/100;
+  if(!confirm('In Billa-Korb legen?\n'+items.length+' Produkte · '+packsTot+' Packungen · '+total.toFixed(2)+' €\n\nBezahlen & Abholzeit wählst du danach selbst.'))return;
+  toast('Speichere Korb-Lauf…');
+  try{
+    var r=await SB.from('cart_runs').insert({store:store,status:'proposed',total:total,item_count:items.length,items:items,note:'App-Lauf'}).select('id');
+    var rid=r.data&&r.data[0]&&r.data[0].id;
+    if(r.error||!rid){toast('Speichern fehlgeschlagen'+(r.error?': '+r.error.message:''));return;}
+    if(CART)CART._runId=rid;cartFillSheet(rid,items,total,packsTot);
+  }catch(e){toast('Fehler: '+((e&&e.message)||e));}
+}
+function cartFillSheet(rid,items,total,packsTot){
+  var ex=document.getElementById('cfEl');if(ex)ex.remove();
+  var el=document.createElement('div');el.className='chatov';el.id='cfEl';
+  el.innerHTML='<div class="chathead"><b>🛒 Korb bereit · Lauf #'+rid+'</b><span class="close" onclick="(function(){var e=document.getElementById(\'cfEl\');if(e)e.remove();})()">Schließen ✕</span></div><div class="chatbody">'
+   +'<div class="cfbar"><span>✅</span><span><b>'+items.length+' Produkte · '+packsTot+' Packungen · '+total.toFixed(2)+' €</b> gespeichert.</span></div>'
+   +'<div class="spgrp">So kommt der Korb zu Billa</div>'
+   +'<div class="chathint">1️⃣ Sag mir im Chat: <b>„fülle den Billa-Korb"</b> — ich lege alle Produkte in den korrekten Mengen in deinen Click&amp;Collect-Korb.<br>2️⃣ Oder tippe unten ein Produkt → öffnet die Billa-Seite zum selbst Reinlegen.<br>🔒 <b>Bezahlen &amp; Abholzeit</b> wählst immer du selbst — ich stoppe davor.</div>'
+   +'<div class="spgrp">Produkte ('+packsTot+' Packungen)</div>'
+   +items.map(function(x){var img=x.image?'<img src="'+esc(x.image)+'" loading="lazy" onerror="this.style.display=\'none\'">':'';return '<a class="csw" href="'+(x.url?'https://shop.billa.at/produkte/'+esc(x.url):'https://shop.billa.at')+'" target="_blank" rel="noopener" style="text-decoration:none;color:inherit"><div class="ct">'+(x.bio?'🌿':'🛒')+img+'</div><div class="cn"><div class="cnt">'+esc(x.name)+(x.packs>1?' <span class="bbio">'+x.packs+'×</span>':'')+'</div><div class="cnm"><span>für '+esc(x.ing)+' · '+esc(fmtQty(x.qty,x.unit||'',1))+'</span></div></div><div class="cpx">'+(+x.price*x.packs).toFixed(2)+' €</div></a>';}).join('')
+   +'<div style="height:30px"></div></div>';
+  document.body.appendChild(el);
+}
 async function cartCheckout(){
   if(typeof SB==='undefined'||!SB||!SB.from){toast('Nur in der Live-App');return;}
   var raw=(CART&&CART.raw)||[];var store=(PREFS&&PREFS.staple_store)||'billa';
