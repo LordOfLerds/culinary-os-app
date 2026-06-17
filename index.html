@@ -191,6 +191,15 @@ a{color:inherit}
 .hrow .hpr{flex:0 0 auto;font-weight:700;color:var(--acc);font-variant-numeric:tabular-nums}
 .statcard{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 13px;margin-bottom:10px}
 .statcard .sclbl{font-size:12px;color:var(--mut2);font-weight:600;margin-bottom:8px}
+.idcard{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px 14px}
+.idcard .idk{font-size:12px;color:var(--mut2);font-weight:600;margin-bottom:7px}
+.idbig{font-size:19px;font-weight:700;color:var(--acc);font-variant-numeric:tabular-nums}
+.idstat{font-size:12.5px;color:var(--mut);margin-top:8px}
+.itbl{width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums}
+.itbl th{text-align:left;color:var(--mut2);font-weight:600;font-size:11px;padding:4px 6px;border-bottom:1px solid var(--line)}
+.itbl td{padding:6px 6px;border-bottom:1px solid var(--soft);color:var(--ink)}
+.itbl tr:last-child td{border-bottom:none}
+.pchev{flex:0 0 auto;color:var(--mut2);font-size:15px;margin-left:2px}
 .useup{margin:12px 14px 0;background:linear-gradient(180deg,#fff7ed,#fffdfa);border:1px solid #f0d9bf;border-radius:14px;padding:12px 14px}
 .useup .uh{font-size:13px;font-weight:700;color:#c2680f}
 .useup .uitems{font-size:12.5px;color:var(--mut);margin-top:4px;line-height:1.55}
@@ -486,6 +495,41 @@ let P=null;
 async function loadPantry(){try{const r=await SB.rpc('app_pantry');P=(r&&r.data)||[];}catch(e){P=[];}render();}
 let HIST=null;
 async function loadHist(){if(typeof SB==='undefined'||!SB||!SB.rpc)return;try{var r=await SB.rpc('app_ingredient_history');HIST=r.data||[];}catch(e){HIST=[];}render();}
+let ITX=null;
+async function loadItx(){if(typeof SB==='undefined'||!SB||!SB.rpc)return;try{var r=await SB.rpc('app_ingredient_txns');ITX=r.data||[];}catch(e){ITX=[];}render();}
+function normIng(s){return (s||'').toLowerCase().replace(/ä/g,'ae').replace(/ö/g,'oe').replace(/ü/g,'ue').replace(/ß/g,'ss').replace(/[^a-z]+/g,' ').replace(/\b(bio|frisch|stk|stueck|bund|pkg|packung|dose|glas|ml|cl|l|g|kg)\b/g,' ').replace(/\s+/g,' ').trim();}
+function matchIng(a,b){var na=normIng(a),nb=normIng(b);if(!na||!nb)return false;if(na===nb)return true;var ta=na.split(' '),tb=nb.split(' ');return ta.some(function(x){return x.length>=4&&nb.indexOf(x)>=0;})||tb.some(function(x){return x.length>=4&&na.indexOf(x)>=0;});}
+function ingTxns(name){if(!ITX)return[];return ITX.filter(function(x){return matchIng(x.name,name);});}
+function openIngredient(name){try{name=decodeURIComponent(name);}catch(e){}if(ITX===null){loadItx();}var ex=document.getElementById('ingEl');if(ex)ex.remove();var el=document.createElement('div');el.className='chatov';el.id='ingEl';el.innerHTML=ingDetailHtml(name);document.body.appendChild(el);var b=el.querySelector('.chatbody');if(b)b.scrollTop=0;}
+function closeIng(){var e=document.getElementById('ingEl');if(e)e.remove();}
+function ingDetailHtml(name){
+  var tx=ingTxns(name);
+  var buys=tx.filter(function(x){return x.kind==='buy';}).slice().sort(function(a,b){return (a.d||'')<(b.d||'')?-1:1;});
+  var uses=tx.filter(function(x){return x.kind==='use';});
+  var stock=(P&&P.length)?(P.filter(function(it){return matchIng(it.name,name);})[0]||null):null;
+  var head='<div class="chathead"><b>📦 '+esc(name)+'</b><span class="close" onclick="closeIng()">Schließen ✕</span></div>';
+  var h='<div class="chatbody">';
+  if(stock){var a=pAmpel(stock.days);h+='<div class="idcard"><div class="idk">Aktuell im Vorrat'+(stock.opened?' · offen':'')+'</div><div class="idbig">'+esc(fmtQty(stock.qty,stock.unit||'',1))+(a[1]?' <span style="font-size:13px;font-weight:600;color:'+a[0]+'"> · MHD '+esc(a[1])+'</span>':'')+'</div></div>';}
+  if(buys.length){
+    var prices=buys.map(function(b){return +b.unit_price||+b.price||0;}).filter(function(v){return v>0;});
+    var last=prices.length?prices[prices.length-1]:null,avg=prices.length?prices.reduce(function(s,v){return s+v;},0)/prices.length:null,mn=prices.length?Math.min.apply(null,prices):null,mx=prices.length?Math.max.apply(null,prices):null;
+    h+='<div class="idcard"><div class="idk">Preis-Verlauf'+(buys[0].unit?' · € pro '+esc(buys[0].unit):'')+'</div>';
+    if(buys.length>=2)h+=barChart(buys.map(function(b){return {label:(b.d||'').slice(5),val:+b.unit_price||+b.price||0};}),null);
+    else h+='<div class="chathint">Erst 1 Einkauf erfasst — ab dem 2. zeigt sich hier der Verlauf.</div>';
+    var st=[];if(last!=null)st.push('zuletzt <b>'+last.toFixed(2)+' €</b>');if(avg!=null&&buys.length>=2)st.push('Ø '+avg.toFixed(2)+' €');if(mn!=null&&mx!=null&&mn!==mx)st.push('min '+mn.toFixed(2)+' · max '+mx.toFixed(2));
+    if(st.length)h+='<div class="idstat">'+st.join(' · ')+'</div>';
+    h+='</div>';
+    h+='<div class="idcard"><div class="idk">Einkäufe ('+buys.length+')</div><table class="itbl"><tr><th>Datum</th><th>Wo</th><th>Menge</th><th>Preis</th><th>€/Einh.</th></tr>';
+    buys.slice().reverse().forEach(function(b){h+='<tr><td>'+esc(b.d||'')+'</td><td>'+esc(b.merchant||'–')+'</td><td>'+esc(fmtQty(b.qty,b.unit||'',1))+'</td><td>'+(b.price!=null?(+b.price).toFixed(2)+' €':'')+'</td><td>'+(b.unit_price!=null?(+b.unit_price).toFixed(2):'')+'</td></tr>';});
+    h+='</table></div>';
+  }else{h+='<div class="idcard"><div class="idk">Preis &amp; Einkäufe</div><div class="chathint">Noch keine Einkäufe zu dieser Zutat erfasst. Sobald ein Bon importiert wird, erscheinen hier Preis-Verlauf, Mengen und €/Einheit.</div></div>';}
+  if(uses.length){var cons=uses.reduce(function(s,u){return s+Math.abs(+u.qty||0);},0);h+='<div class="idcard"><div class="idk">Verbrauch</div><div class="idbig">−'+esc(fmtQty(cons,uses[0].unit||'',1))+'</div><div class="idstat">'+uses.length+' Abbuchung'+(uses.length>1?'en':'')+' beim Kochen</div></div>';}
+  else if(buys.length)h+='<div class="idcard"><div class="idk">Verbrauch</div><div class="chathint">Noch nichts abgebucht — füllt sich beim „Vorrat abbuchen" im Koch-Modus.</div></div>';
+  var recs=recipesUsing([{name:stock?stock.name:name}]);
+  if(recs.length)h+='<div class="idcard"><div class="idk">In Rezepten ('+recs.length+')</div>'+recs.map(function(s){var r=s.r;return '<div class="hrow" style="cursor:pointer" onclick="closeIng();openRecipe(\''+r.id+'\')"><div class="hn">'+esc(r.title)+'</div><span class="hpr">›</span></div>';}).join('')+'</div>';
+  h+='<div style="height:30px"></div></div>';
+  return head+h;
+}
 let EATERS=null;
 async function loadEaters(){if(typeof SB==='undefined'||!SB||!SB.from)return;try{var r=await SB.from('eaters').select('name,is_primary,kcal_goal,protein_goal_g,carb_goal_g,fat_goal_g');EATERS=r.data||[];}catch(e){EATERS=[];}render();}
 function primaryEater(){if(!EATERS||!EATERS.length)return null;return EATERS.filter(function(e){return e.is_primary;})[0]||EATERS[0];}
@@ -511,14 +555,15 @@ function viewPantry(){
   Object.keys(g).forEach(loc=>{
     h+=`<div class="psec"><div class="pgh">${LOC[loc]||esc(loc)}</div><ul class="plist">`;
     g[loc].forEach(it=>{const a=pAmpel(it.days);
-      h+=`<li class="pit"><span class="pdot" style="background:${a[0]||'var(--line)'}"></span><span class="pn">${esc(it.name)}${it.opened?'<span class="popen">offen</span>':''}</span><span class="pq">${esc(String(it.qty))} ${esc(it.unit||'')}</span>${a[1]?`<span class="pmhd" style="color:${a[0]}">${a[1]}</span>`:''}</li>`;});
+      h+=`<li class="pit" onclick="openIngredient('${encodeURIComponent(it.name)}')"><span class="pdot" style="background:${a[0]||'var(--line)'}"></span><span class="pn">${esc(it.name)}${it.opened?'<span class="popen">offen</span>':''}</span><span class="pq">${esc(String(it.qty))} ${esc(it.unit||'')}</span>${a[1]?`<span class="pmhd" style="color:${a[0]}">${a[1]}</span>`:''}<span class="pchev">›</span></li>`;});
     h+=`</ul></div>`;});
   if(HIST===null)loadHist();
   else if(HIST.length){var spent=HIST.reduce(function(a,x){return a+(+x.total_spent||0);},0);
     h+='<div class="psec"><div class="pgh">📊 Einkaufs-Historie'+(spent?' · '+spent.toFixed(2)+' € gesamt':'')+'</div><ul class="plist">';
     HIST.forEach(function(it){var meta=[];if(it.qty!=null)meta.push(esc(fmtQty(it.qty,it.unit||'',1)));if(it.buys)meta.push(it.buys+'× gekauft');if(it.consumed)meta.push('−'+esc(fmtQty(it.consumed,'',1))+' verbraucht');
-      h+='<li class="hrow"><div class="hn">'+esc(it.name)+'<div class="hmeta">'+meta.join(' · ')+'</div></div>'+(it.last_price!=null?'<span class="hpr">'+(+it.last_price).toFixed(2)+' €</span>':'')+'</li>';});
+      h+='<li class="hrow" style="cursor:pointer" onclick="openIngredient(\''+encodeURIComponent(it.name)+'\')"><div class="hn">'+esc(it.name)+'<div class="hmeta">'+meta.join(' · ')+'</div></div>'+(it.last_price!=null?'<span class="hpr">'+(+it.last_price).toFixed(2)+' €</span>':'')+'<span class="pchev">›</span></li>';});
     h+='</ul></div>';}
+  if(ITX===null)loadItx();
   if(EATERS===null)loadEaters();
   var log=getCookLog();
   var days=[];for(var dd=13;dd>=0;dd--){var dt=new Date();dt.setDate(dt.getDate()-dd);days.push(dt.toISOString().slice(0,10));}
