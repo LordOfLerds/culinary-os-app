@@ -1,0 +1,14 @@
+{
+  "name": "Culinary OS",
+  "short_name": "Culinary",
+  "description": "Lucas KI-Koch-OS — Rezepte, Plan, Vorrat, Einkauf",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#faf7f2",
+  "theme_color": "#b5651d",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
