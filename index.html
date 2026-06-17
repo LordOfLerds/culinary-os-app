@@ -29,6 +29,13 @@ body.dark .useup{background:linear-gradient(180deg,#2a2017,#1f1a14);border-color
 .chatin{display:flex;gap:8px;padding:10px 14px calc(10px + env(safe-area-inset-bottom));border-top:1px solid var(--line)}
 .chatin input{flex:1;padding:11px 13px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);font-size:15px}
 .chatin button{flex:0 0 auto;width:46px;border:none;border-radius:12px;background:var(--acc);color:#fff;font-size:20px;cursor:pointer}
+.tbrow{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.impbtn{flex:0 0 auto;background:var(--soft);border:1px solid var(--line);color:var(--acc);font-weight:600;font-size:12.5px;border-radius:9px;padding:6px 11px;cursor:pointer}
+.imparea{width:100%;min-height:120px;margin:10px 0;padding:11px 13px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);font-size:14px;font-family:inherit;resize:vertical}
+.imprev{margin-top:14px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px}
+.imprev h3{color:var(--acc);font-size:17px;margin-bottom:6px}
+.impc{margin-top:10px}
+.impc ul,.impc ol{margin:4px 0 0 18px;font-size:13.5px;line-height:1.5}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0}
 body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Arial,sans-serif;-webkit-font-smoothing:antialiased;padding-bottom:calc(64px + env(safe-area-inset-bottom))}
@@ -309,7 +316,7 @@ function viewRecipes(){
   const favChip='<div class="chip'+(state.favOnly?' on':'')+'" onclick="toggleFavOnly()">★ Favoriten</div>';
   const recent=getRecent().map(byId).filter(Boolean);
   const recentRow=(!q&&!active&&!state.favOnly&&recent.length>1)?'<div class="recent"><div class="rlbl">Zuletzt angesehen</div><div class="rrow">'+recent.slice(0,8).map(function(r){return '<div class="rcard" onclick="openRecipe(\''+r.id+'\')"><div class="rcs">'+esc(r.slot||'')+'</div><div class="rct">'+esc(r.title)+'</div></div>';}).join('')+'</div></div>':'';
-  return `<div class="topbar"><h1>🍳 Culinary OS</h1><div class="sub">${R.length} Rezepte · dein Kochbuch</div>
+  return `<div class="topbar"><div class="tbrow"><h1>🍳 Culinary OS</h1><button class="impbtn" onclick="openImport()">🔗 Import</button></div><div class="sub">${R.length} Rezepte · dein Kochbuch</div>
     <input class="search" placeholder="Suchen: Titel, Küche, Tag…" value="${esc(state.q)}" oninput="state.q=this.value;render()">
     <div class="filters">${sel('cuisine','Küche',uniq('cuisine'),state.cuisine||'')}${sel('course','Gang/Art',uniq('category_label'),state.course||'')}${sel('protein','Protein',uniq('protein'),state.protein||'')}<select class="fsel" onchange="setF('sort',this.value)"><option value="slot"${sort==='slot'?' selected':''}>↕ Slot</option><option value="kcald"${sort==='kcald'?' selected':''}>kcal ↓</option><option value="kcal"${sort==='kcal'?' selected':''}>kcal ↑</option><option value="time"${sort==='time'?' selected':''}>Zeit ↑</option><option value="title"${sort==='title'?' selected':''}>A–Z</option></select>${active?'<button class="fclear" onclick="clearF()">✕</button>':''}</div></div>
     ${heute}<div class="chips">${favChip}${chips}</div>${recentRow}<div class="count">${list.length} Rezepte</div>
@@ -578,6 +585,28 @@ async function sendChat(){var inp=document.getElementById('chatInput');if(!inp)r
     else state.chat.push({role:'assistant',content:d.text||'(keine Antwort)'});
   }catch(e){if(state.chat.length&&state.chat[state.chat.length-1].content==='…')state.chat.pop();state.chat.push({role:'assistant',content:'Fehler: '+e});}
   renderChat();}
+/* ---------- LINK-IMPORT ---------- */
+function openImport(){state.imp={};renderImport();}
+function closeImport(){var e=document.getElementById('impEl');if(e)e.remove();}
+function renderImport(){var ex=document.getElementById('impEl');if(ex)ex.remove();var s=state.imp||{};
+  var prev='';
+  if(s.busy)prev='<div class="chathint">⏳ Hole & verarbeite das Rezept…</div>';
+  else if(s.err)prev='<div class="chathint">⚠️ '+esc(s.err)+'</div>';
+  else if(s.res){var r=s.res;prev='<div class="imprev"><h3>'+esc(r.title||'Rezept')+'</h3>'+(r.components||[]).map(function(c){return '<div class="impc"><b>'+esc(c.name||'')+'</b><ul>'+(c.ingredients||[]).map(function(i){return '<li>'+esc(((i.qty!=null?i.qty:'')+' '+(i.unit||'')+' '+(i.name||'')).trim())+'</li>';}).join('')+'</ul><ol>'+(c.steps||[]).map(function(st){return '<li>'+esc(typeof st==="string"?st:(st&&st.instruction||''))+'</li>';}).join('')+'</ol></div>';}).join('')+'<div class="chathint" style="margin-top:8px">Auf 2 Portionen & metrische Einheiten gerechnet. Speichern in deine Sammlung folgt.</div></div>';}
+  var el=document.createElement('div');el.className='chatov';el.id='impEl';
+  el.innerHTML='<div class="chathead"><b>🔗 Rezept importieren</b><span class="close" onclick="closeImport()">Schließen ✕</span></div><div class="chatbody"><div class="chathint">Link einer Kochseite/Blog ODER Rezept-Text/Caption einfügen. (TikTok/Insta sind oft login-gesperrt → dann den Text einfügen.)</div><textarea id="impText" class="imparea" placeholder="https://…  oder  Rezept-Text"></textarea><button class="btn btn-p" style="width:100%" onclick="doImport()">Importieren</button>'+prev+'</div>';
+  document.body.appendChild(el);}
+async function doImport(){var ta=document.getElementById('impText');if(!ta)return;var v=(ta.value||'').trim();if(!v)return;
+  if(typeof SB==='undefined'||!SB||!SB.functions){toast('Import nur in der Live-App');return;}
+  var isUrl=/^https?:\/\//i.test(v);state.imp={busy:true};renderImport();
+  try{var r=await SB.functions.invoke('ai',{body:isUrl?{intent:'parse',url:v}:{intent:'parse',text:v}});var d=(r&&r.data)||{};
+    if(d.error==='no_key')state.imp={err:d.message};
+    else if(d.error)state.imp={err:d.message||d.error};
+    else{var rec=null;try{rec=JSON.parse(String(d.text||'').replace(/^```json/i,'').replace(/^```/,'').replace(/```$/,'').trim());}catch(e){}
+      if(rec&&rec.error)state.imp={err:rec.error};
+      else state.imp=(rec&&rec.title)?{res:rec}:{err:'Kein Rezept erkannt. Versuch den reinen Rezept-Text.'};}
+  }catch(e){state.imp={err:String(e)};}
+  renderImport();}
 /* ---------- MENÜS (Gäste-Menükarte) ---------- */
 const COURSES=['Gruß','Vorspeise','Zwischengang','Hauptgang','Käse','Dessert','Petit Four'];
 function getMenus(){return store.get('menus',[]);}
