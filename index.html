@@ -117,6 +117,16 @@ a{color:inherit}
 .rate .rlbl2{font-size:13px;color:var(--mut);font-weight:600}
 .starrow .star{font-size:25px;cursor:pointer;padding:0 2px;color:var(--mut2)}
 .starrow .star.on{color:#e3a700}
+.mprev{font-size:12.5px;color:var(--mut2);padding:6px 0 2px;line-height:1.4}
+.menucard{margin:10px 16px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:28px 22px}
+.mctitle{font-family:Georgia,serif;font-size:24px;text-align:center;color:var(--acc);line-height:1.2}
+.mcrule{text-align:center;color:var(--mut2);letter-spacing:.3em;margin:6px 0 2px;font-size:13px}
+.mcourse{margin-top:22px;text-align:center}
+.mcl{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--mut2);margin-bottom:8px}
+.mcdish{margin:9px 0}
+.mct{font-family:Georgia,serif;font-size:17.5px}
+.mcs{font-family:Georgia,serif;font-style:italic;font-size:13.5px;color:var(--mut);margin-top:2px}
+.mcx{color:#b23;cursor:pointer;font-size:15px;margin-left:8px}
 /* shopping */
 .aisle{margin:14px 14px 0}
 .aisle h3{font-size:13px;color:var(--acc);text-transform:capitalize;margin-bottom:6px}
@@ -491,6 +501,31 @@ function runCook(i,min){let sec=min*60;const el=document.getElementById('ct'+i);
 function speak(t){try{const u=new SpeechSynthesisUtterance(t);u.lang='de-DE';speechSynthesis.cancel();speechSynthesis.speak(u);}catch(e){}}
 function startTimer(min,ev){if(ev)ev.stopPropagation();toast('⏱ '+min+' min — Koch-Modus öffnen für laufende Timer');}
 
+/* ---------- MENÜS (Gäste-Menükarte) ---------- */
+const COURSES=['Gruß','Vorspeise','Zwischengang','Hauptgang','Käse','Dessert','Petit Four'];
+function getMenus(){return store.get('menus',[]);}
+function newMenu(){var name=prompt('Name des Menüs (z. B. „Sommermenü 6 Gänge")');if(!name)return;var ms=getMenus();ms.push({name:name,items:[]});store.set('menus',ms);state.menu=ms.length-1;state.view='menucard';render();}
+function openMenuCard(i){state.menu=i;state.view='menucard';window.scrollTo(0,0);render();}
+function addToMenu(){openModal('Gang wählen',COURSES.map(function(c){return {label:c,fn:function(){pickMenuRecipe(c);}};}));}
+function pickMenuRecipe(course){var opts=R.slice().sort(function(a,b){return a.title.localeCompare(b.title);}).map(function(r){return {label:r.title+' · '+((r.macros_per_serving&&r.macros_per_serving.kcal)||'?')+' kcal',fn:function(){var ms=getMenus();if(!ms[state.menu])return;ms[state.menu].items.push({course:course,id:r.id});store.set('menus',ms);closeModal();render();}};});openModal(course+' — Rezept',opts);}
+function rmMenu(course,id){var ms=getMenus();var m=ms[state.menu];if(!m)return;m.items=(m.items||[]).filter(function(it){return !(it.course===course&&it.id===id);});store.set('menus',ms);render();}
+function renameMenu(){var ms=getMenus();if(!ms[state.menu])return;var n=prompt('Neuer Name',ms[state.menu].name);if(n){ms[state.menu].name=n;store.set('menus',ms);render();}}
+function delMenu(){if(!confirm('Dieses Menü löschen?'))return;var ms=getMenus();ms.splice(state.menu,1);store.set('menus',ms);state.view='menus';render();}
+function viewMenus(){var ms=getMenus();
+  var cards=ms.map(function(m,i){var its=m.items||[];var names=its.map(function(it){var r=byId(it.id);return r?r.title:'';}).filter(Boolean);
+    return '<div class="day" onclick="openMenuCard('+i+')"><h3>'+esc(m.name)+'<span class="dk">'+its.length+' Gänge</span></h3><div class="mprev">'+(names.length?esc(names.slice(0,3).join(' · '))+(names.length>3?' …':''):'— leer —')+'</div></div>';}).join('');
+  return '<div class="topbar"><h1>Menüs</h1><div class="sub">'+ms.length+' Menüs · Gäste-Menükarten</div></div><div class="planbar"><button class="btn btn-p" onclick="newMenu()">＋ Neues Menü</button></div>'+(cards||'<div class="empty-big">Noch keine Menüs.<br>Stell ein Menü für deine Gäste zusammen — Gang für Gang, als elegante Karte.</div>')+'<div style="height:20px"></div>';
+}
+function viewMenuCard(){var ms=getMenus();var m=ms[state.menu];if(!m)return viewMenus();
+  var byC={};(m.items||[]).forEach(function(it){(byC[it.course]=byC[it.course]||[]).push(it.id);});
+  var courses=COURSES.filter(function(c){return byC[c];}).map(function(c){
+    var dishes=byC[c].map(function(id){var r=byId(id);if(!r)return'';return '<div class="mcdish"><div class="mct">'+esc(r.title)+'<span class="mcx" onclick="rmMenu(\''+esc(c)+'\',\''+r.id+'\')">×</span></div>'+(r.subtitle?'<div class="mcs">'+esc(r.subtitle)+'</div>':'')+'</div>';}).join('');
+    return '<div class="mcourse"><div class="mcl">'+esc(c)+'</div>'+dishes+'</div>';}).join('');
+  return '<div class="sheet"><div class="back" onclick="go(\'menus\')">‹ Menüs</div>'+
+    '<div class="menucard"><div class="mctitle">'+esc(m.name)+'</div><div class="mcrule">·  ·  ·</div>'+(courses||'<div class="empty" style="text-align:center">Noch keine Gänge — ＋ Gericht unten.</div>')+'</div>'+
+    '<div class="btnrow"><button class="btn btn-p" onclick="addToMenu()">＋ Gericht</button><button class="btn btn-s" onclick="renameMenu()">Umbenennen</button></div>'+
+    '<div class="btnrow"><button class="btn btn-s" onclick="delMenu()">Menü löschen</button></div><div style="height:30px"></div></div>';
+}
 /* ---------- modal / nav / router ---------- */
 let modalEl=null;
 function openModal(title,opts){closeModal();modalEl=document.createElement('div');modalEl.className='modal';modalEl.onclick=e=>{if(e.target===modalEl)closeModal();};
@@ -499,10 +534,10 @@ function openModal(title,opts){closeModal();modalEl=document.createElement('div'
 function closeModal(){if(modalEl){modalEl.remove();modalEl=null;}}
 function go(v){state.view=v;window.scrollTo(0,0);render();}
 function nav(){const p=getPlan();const n=planIds(p).length;
-  const items=[['recipes','📖','Rezepte'],['plan','🗓','Plan'],['shopping','🛒','Einkauf'],['vorrat','🧺','Vorrat']];
+  const items=[['recipes','📖','Rezepte'],['plan','🗓','Plan'],['shopping','🛒','Einkauf'],['vorrat','🧺','Vorrat'],['menus','🍽','Menüs']];
   document.getElementById('nav').innerHTML=items.map(([v,ic,la])=>`<button class="${state.view===v||(v==='recipes'&&state.view==='detail')?'on':''}" onclick="go('${v}')"><span class="ic">${ic}</span>${la}${v==='plan'&&n?`<span class="badge-n">${n}</span>`:''}</button>`).join('');}
 function render(){const root=document.getElementById('root');
-  root.innerHTML = state.view==='detail'?viewDetail():state.view==='plan'?viewPlan():state.view==='shopping'?viewShopping():state.view==='vorrat'?viewPantry():viewRecipes();
+  root.innerHTML = state.view==='detail'?viewDetail():state.view==='plan'?viewPlan():state.view==='shopping'?viewShopping():state.view==='vorrat'?viewPantry():state.view==='menus'?viewMenus():state.view==='menucard'?viewMenuCard():viewRecipes();
   nav();}
 function showLogin(msg){document.getElementById('nav').style.display='none';
   document.getElementById('root').innerHTML='<div style="max-width:420px;margin:11vh auto;padding:26px;text-align:center"><div style="font-size:42px">🍳</div><h1 style="font-family:Georgia,serif;color:var(--acc);margin:8px 0 2px;font-size:26px">Culinary OS</h1><div style="color:var(--mut);font-size:14px;margin-bottom:22px">Dein Kochbuch · 70 Rezepte, Plan, Vorrat</div><input id="em" type="email" autocomplete="username" placeholder="E-Mail" class="search" style="text-align:center;margin-bottom:8px"><input id="pw" type="password" autocomplete="current-password" placeholder="Passwort" class="search" style="text-align:center"><button class="btn btn-p" style="width:100%;margin-top:12px" onclick="doLogin()">Anmelden</button><div id="lmsg" style="font-size:13px;color:var(--mut);margin-top:16px;line-height:1.5">'+(msg||'')+'</div></div>';}
