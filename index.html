@@ -199,6 +199,27 @@ a{color:inherit}
 .shrec{margin-top:5px;font-size:11px;color:var(--mut2)}
 .shreclink{color:var(--acc);cursor:pointer;border-bottom:1px dotted var(--acc)}
 .shl li.have .shnm{color:var(--mut)}
+.cit{display:flex;gap:10px;align-items:flex-start;background:var(--card);border:1px solid var(--line);border-radius:13px;padding:10px 12px;margin-bottom:9px}
+.cit .pic{width:32px;height:32px;border-radius:9px;background:var(--soft);display:flex;align-items:center;justify-content:center;font-size:16px;flex:0 0 auto}
+.cit .mid{flex:1;min-width:0}
+.cit .ing{font-size:10.5px;color:var(--mut2);text-transform:uppercase;letter-spacing:.02em}
+.cit .prod{font-size:14px;font-weight:700;line-height:1.25;margin-top:1px}
+.cit .cmeta{font-size:11px;color:var(--mut);margin-top:3px}
+.cit .right{flex:0 0 auto;text-align:right}
+.cit .cpr{font-size:14px;font-weight:800;color:var(--acc);font-variant-numeric:tabular-nums}
+.cit .cacts{display:flex;gap:6px;justify-content:flex-end;margin-top:6px}
+.cit .cact{font-size:13px;background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:3px 8px;cursor:pointer;color:var(--acc);font-weight:600}
+.cit.miss .prod{font-weight:600;color:var(--mut)}
+.bbio{background:var(--tealbg);color:var(--teal);font-weight:700;font-size:9px;padding:1px 5px;border-radius:5px;vertical-align:middle}
+.bpin{font-size:10px}
+.oth{color:var(--teal);font-weight:700}
+.chint{display:flex;gap:9px;align-items:flex-start;background:var(--amberbg);border:1px solid #f0d9b0;border-radius:12px;padding:10px 12px;margin-bottom:11px}
+.chint .ic{font-size:15px}
+.chint .hx{font-size:12px;color:var(--amber);line-height:1.45}
+.chint .lnk{color:var(--acc);font-weight:700;border-bottom:1px dotted var(--acc);cursor:pointer;display:inline-block;margin-top:3px}
+.sum{display:flex;justify-content:space-between;align-items:center;margin:8px 14px 0;padding:11px 14px;background:var(--card);border:1px solid var(--line);border-radius:13px}
+.sum .l{font-size:12.5px;color:var(--mut)}
+.sum .v{font-size:18px;font-weight:800;color:var(--acc);font-variant-numeric:tabular-nums}
 .shl li:first-child{border-top:none}
 .shl li.done{color:var(--mut2);text-decoration:line-through}
 .ck{width:20px;height:20px;border:1.5px solid #c9c3b6;border-radius:6px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:13px;color:#fff}
@@ -564,9 +585,68 @@ function viewShopping(){const p=getPlan();const ids=planIds(p);
   }).join('');
     return `<div class="aisle"><h3>${AISLE_DE[a]}</h3><ul class="shl">${items}</ul></div>`;}).join('');
   const sub=P===null?`${ids.length} Gerichte · Vorrat lädt…`:`${ids.length} Gerichte · ${buyN} zu kaufen${haveN?` · ${haveN} im Vorrat ✓`:''}`;
-  return `<div class="topbar"><h1>Einkaufsliste</h1><div class="sub">${sub}</div></div>${html}<div class="btnrow"><button class="btn btn-s" onclick="if(confirm('Abgehakte zurücksetzen?')){store.set('shop_done',{});render();}">Haken zurücksetzen</button></div><div style="height:20px"></div>`;
+  return `<div class="topbar"><h1>Einkaufsliste</h1><div class="sub">${sub}</div></div><div class="planbar"><button class="btn btn-p" onclick="openCartView()">🛒 Warenkorb-Vorschlag</button></div>${html}<div class="btnrow"><button class="btn btn-s" onclick="if(confirm('Abgehakte zurücksetzen?')){store.set('shop_done',{});render();}">Haken zurücksetzen</button></div><div style="height:20px"></div>`;
 }
 function toggleShop(k){const d=store.get('shop_done',{});d[k]=!d[k];store.set('shop_done',d);render();}
+
+/* ---------- WARENKORB-VORSCHLAG (Auto-Cart) ---------- */
+let PREFS=null, CART=null;
+async function loadPrefs(){if(typeof SB==='undefined'||!SB||!SB.from){PREFS={bio_level:'near',staple_store:'billa',pins:[],overrides:{}};return;}try{var r=await SB.from('shopping_prefs').select('*').eq('id',1);PREFS=(r.data&&r.data[0])||{bio_level:'near',staple_store:'billa',pins:[],overrides:{}};}catch(e){PREFS={bio_level:'near',staple_store:'billa',pins:[],overrides:{}};}}
+async function savePrefs(){if(typeof SB==='undefined'||!SB||!SB.from||!PREFS)return;try{await SB.from('shopping_prefs').update({overrides:PREFS.overrides,pins:PREFS.pins,bio_level:PREFS.bio_level,staple_store:PREFS.staple_store}).eq('id',1);}catch(e){}}
+function shoppingBuyList(){var ids=planIds(getPlan());var agg={};
+  ids.forEach(function(id){var r=byId(id);if(!r)return;(r.components||[]).forEach(function(c){(c.ingredients||[]).forEach(function(i){var e=agg[i.name]=agg[i.name]||{u:{}};var u=i.unit||'';e.u[u]=(e.u[u]||0)+(+i.qty||0);});});});
+  var out=[];Object.keys(agg).forEach(function(nm){var e=agg[nm];Object.keys(e.u).forEach(function(u){var q=e.u[u];if(!q)return;var have=pantryHave(nm,u);var rest=Math.max(0,q-have);if(rest>1e-9)out.push({name:nm,qty:Math.round(rest*100)/100,unit:u});});});
+  return out;}
+function scoreCand(c){var s=0,prefs=PREFS||{};var pins=prefs.pins||[];if(pins.some(function(p){return p&&(c.name||'').toLowerCase().indexOf(p.toLowerCase())>=0;}))s+=10;if(c.bio&&(prefs.bio_level||'near')!=='off')s+=2;return s;}
+function chosenFor(it){var cands=it.cands||[];if(!cands.length)return null;var prefs=PREFS||{};var store=prefs.staple_store||'billa';
+  var ov=(prefs.overrides||{})[(it.ing||'').toLowerCase()];if(ov){var o=cands.filter(function(c){return c.id===ov;})[0];if(o)return o;}
+  var pool=cands.filter(function(c){return c.store===store;});if(!pool.length)pool=cands.slice();
+  pool=pool.slice().sort(function(a,b){return scoreCand(b)-scoreCand(a)||((a.unit_price==null?9e9:a.unit_price)-(b.unit_price==null?9e9:b.unit_price));});
+  return pool[0];}
+function otherStoreBest(it,store){return (it.cands||[]).filter(function(c){return c.store!==store&&c.unit_price!=null;}).sort(function(a,b){return a.unit_price-b.unit_price;})[0];}
+function brandToken(name){var w=(name||'').replace(/^[^A-Za-zÀ-ÿ]+/,'').split(/\s+/)[0]||'';return w.replace(/[^A-Za-zÀ-ÿ!*]/g,'');}
+function openCartView(){state.view='cart';CART=null;render();}
+async function buildCart(){if(PREFS===null)await loadPrefs();
+  if(typeof SB==='undefined'||!SB||!SB.rpc){CART={err:'Warenkorb-Vorschlag nur in der Live-App'};render();return;}
+  var items=shoppingBuyList();if(!items.length){CART={raw:[]};render();return;}
+  try{var r=await SB.rpc('app_cart_match',{p_items:items});CART={raw:r.data||[],qmap:items};}catch(e){CART={err:'Fehler beim Laden der Preise'};}
+  render();}
+function viewCart(){
+  if(CART===null){buildCart();return '<div class="topbar"><h1>Warenkorb</h1><div class="sub">stellt zusammen…</div></div><div class="empty-big">Preise & Produkte werden gematcht…</div>';}
+  if(CART.err)return '<div class="topbar"><h1>Warenkorb</h1></div><div class="empty-big">'+esc(CART.err)+'</div>'+navBackShop();
+  var raw=CART.raw||[];var store=(PREFS&&PREFS.staple_store)||'billa';
+  if(!raw.length)return '<div class="topbar"><h1>Warenkorb-Vorschlag</h1><div class="sub">Nichts zu kaufen — alles im Vorrat oder nichts geplant.</div></div>'+navBackShop();
+  var total=0, savings=0, saveItems=0, miss=0;
+  var rows=raw.map(function(it,idx){var ch=chosenFor(it);
+    if(!ch){miss++;return '<div class="cit miss"><div class="mid"><div class="ing">'+esc(it.ing)+'</div><div class="prod">kein Treffer · '+esc(fmtQty(it.qty,it.unit||'',1))+'</div></div><div class="right"><span class="cact" onclick="cartSwap('+idx+')">suchen</span></div></div>';}
+    total+=(+ch.price||0);
+    var ob=otherStoreBest(it,store);var dl=(ob&&ch.unit_price!=null&&ob.unit_price!=null)?(ch.unit_price-ob.unit_price):0;
+    var hint='';if(ob&&dl>0&&ob.price<ch.price){savings+=(ch.price-ob.price);saveItems++;hint='<span class="oth">'+esc(ob.store.toUpperCase())+' −'+(ch.price-ob.price).toFixed(2)+'€</span>';}
+    var pinned=(PREFS.pins||[]).some(function(p){return p&&ch.name.toLowerCase().indexOf(p.toLowerCase())>=0;});
+    var badges='';if(ch.bio)badges+='<span class="bbio">BIO</span>';if(pinned)badges+='<span class="bpin">📌</span>';
+    return '<div class="cit"><div class="pic">'+(ch.bio?'🌿':'🛒')+'</div><div class="mid"><div class="ing">'+esc(it.ing)+' · '+esc(fmtQty(it.qty,it.unit||'',1))+'</div><div class="prod">'+esc(ch.name)+' '+badges+'</div><div class="cmeta">'+(ch.unit_price!=null?ch.unit_price.toFixed(2)+' €/'+esc(ch.unit_base||''):'')+' · '+esc(ch.store.toUpperCase())+(hint?' · '+hint:'')+'</div></div><div class="right"><div class="cpr">'+(+ch.price).toFixed(2)+' €</div><div class="cacts"><span class="cact" onclick="cartPin('+idx+')" title="Marke merken">📌</span><span class="cact" onclick="cartSwap('+idx+')" title="tauschen">↔</span></div></div></div>';}).join('');
+  var hintBanner='';
+  if(saveItems>=5 && savings>8 && savings>(total*0.15)) hintBanner='<div class="chint"><span class="ic">💡</span><span class="hx"><b>Zweitmarkt lohnt sich:</b> '+saveItems+' Artikel wären woanders ~'+savings.toFixed(2)+' € billiger.<br><span class="lnk" onclick="toast(\'Separate Liste: kommt — vorerst zeigen die ＋−Hinweise wo es billiger ist\')">→ separate Liste</span></span></div>';
+  var sub=raw.length+' Artikel · '+store.toUpperCase()+' · '+total.toFixed(2)+' €'+(miss?' · '+miss+' ohne Treffer':'');
+  return '<div class="topbar"><h1>🛒 Warenkorb-Vorschlag</h1><div class="sub">'+sub+'</div></div>'
+    +'<div class="psec">'+hintBanner+rows+'</div>'
+    +'<div class="sum"><span class="l">'+store.toUpperCase()+'-Korb gesamt</span><span class="v">'+total.toFixed(2)+' €</span></div>'
+    +'<div class="btnrow"><button class="btn btn-s" onclick="state.view=\'shopping\';render()">‹ Liste</button><button class="btn btn-p" onclick="window.open(\'https://shop.billa.at\',\'_blank\')">Bei Billa öffnen ↗</button></div>'
+    +'<div class="chathint" style="padding:10px 16px">Vorschlag mit Bio/Marke zuerst. ↔ tauschen, 📌 Marke merken — wird beim nächsten Mal bevorzugt. Bestellen & zahlen machst du selbst.</div><div style="height:30px"></div>';
+}
+function navBackShop(){return '<div class="btnrow"><button class="btn btn-s" onclick="state.view=\'shopping\';render()">‹ zurück zur Liste</button></div>';}
+function cartSwap(idx){var it=(CART&&CART.raw||[])[idx];if(!it)return;var ex=document.getElementById('csEl');if(ex)ex.remove();
+  var cands=(it.cands||[]).slice().sort(function(a,b){return scoreCand(b)-scoreCand(a)||((a.unit_price==null?9e9:a.unit_price)-(b.unit_price==null?9e9:b.unit_price));});
+  var bioC=cands.filter(function(c){return c.bio;}),other=cands.filter(function(c){return !c.bio;});
+  function card(c){return '<div class="spc" onclick="cartChoose('+idx+',\''+esc(c.id)+'\')"><div class="spt">'+(c.bio?'🌿 ':'')+esc(c.name)+'</div><div class="spm">'+(+c.price).toFixed(2)+' € · '+(c.unit_price!=null?c.unit_price.toFixed(2)+' €/'+esc(c.unit_base||''):'')+' · <b>'+esc(c.store.toUpperCase())+'</b></div></div>';}
+  var el=document.createElement('div');el.className='chatov';el.id='csEl';
+  el.innerHTML='<div class="chathead"><b>↔ '+esc(it.ing)+'</b><span class="close" onclick="(function(){var e=document.getElementById(\'csEl\');if(e)e.remove();})()">Abbrechen ✕</span></div><div class="chatbody">'
+    +(bioC.length?'<div class="spgrp">Bio / deine Marken zuerst</div>'+bioC.map(card).join(''):'')
+    +(other.length?'<div class="spgrp">Günstiger / weitere</div>'+other.map(card).join(''):'')
+    +(cands.length?'':'<div class="chathint">Keine Treffer im Sortiment.</div>')+'<div style="height:20px"></div></div>';
+  document.body.appendChild(el);}
+function cartChoose(idx,id){var it=(CART&&CART.raw||[])[idx];if(!it)return;PREFS.overrides=PREFS.overrides||{};PREFS.overrides[(it.ing||'').toLowerCase()]=id;savePrefs();var e=document.getElementById('csEl');if(e)e.remove();render();}
+function cartPin(idx){var it=(CART&&CART.raw||[])[idx];if(!it)return;var ch=chosenFor(it);if(!ch)return;var b=brandToken(ch.name);if(!b){toast('Keine Marke erkannt');return;}PREFS.pins=PREFS.pins||[];if(PREFS.pins.indexOf(b)<0)PREFS.pins.push(b);savePrefs();toast('📌 '+b+' gemerkt');render();}
 
 /* ---------- VORRAT ---------- */
 let P=null;
@@ -793,7 +873,7 @@ function nav(){const p=getPlan();const n=planIds(p).length;
   const items=[['recipes','📖','Rezepte'],['plan','🗓','Plan'],['shopping','🛒','Einkauf'],['vorrat','🧺','Vorrat'],['menus','🍽','Menüs']];
   document.getElementById('nav').innerHTML=items.map(([v,ic,la])=>`<button class="${state.view===v||(v==='recipes'&&state.view==='detail')?'on':''}" onclick="go('${v}')"><span class="ic">${ic}</span>${la}${v==='plan'&&n?`<span class="badge-n">${n}</span>`:''}</button>`).join('');}
 function render(){const root=document.getElementById('root');
-  root.innerHTML = state.view==='detail'?viewDetail():state.view==='plan'?viewPlan():state.view==='shopping'?viewShopping():state.view==='vorrat'?viewPantry():state.view==='menus'?viewMenus():state.view==='menucard'?viewMenuCard():viewRecipes();
+  root.innerHTML = state.view==='detail'?viewDetail():state.view==='plan'?viewPlan():state.view==='shopping'?viewShopping():state.view==='cart'?viewCart():state.view==='vorrat'?viewPantry():state.view==='menus'?viewMenus():state.view==='menucard'?viewMenuCard():viewRecipes();
   nav();}
 function showLogin(msg){document.getElementById('nav').style.display='none';
   document.getElementById('root').innerHTML='<div style="max-width:420px;margin:11vh auto;padding:26px;text-align:center"><div style="font-size:42px">🍳</div><h1 style="font-family:Georgia,serif;color:var(--acc);margin:8px 0 2px;font-size:26px">Culinary OS</h1><div style="color:var(--mut);font-size:14px;margin-bottom:22px">Dein Kochbuch · 70 Rezepte, Plan, Vorrat</div><input id="em" type="email" autocomplete="username" placeholder="E-Mail" class="search" style="text-align:center;margin-bottom:8px"><input id="pw" type="password" autocomplete="current-password" placeholder="Passwort" class="search" style="text-align:center"><button class="btn btn-p" style="width:100%;margin-top:12px" onclick="doLogin()">Anmelden</button><div id="lmsg" style="font-size:13px;color:var(--mut);margin-top:16px;line-height:1.5">'+(msg||'')+'</div></div>';}
