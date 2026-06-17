@@ -103,6 +103,8 @@ a{color:inherit}
 .day{margin:12px 14px 0;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
 .day h3{font-size:14px;color:var(--acc);display:flex;justify-content:space-between;align-items:baseline}
 .day h3 .dk{font-size:11.5px;color:var(--mut2);font-weight:400}
+.day h3 .dk.dkok{color:var(--teal);font-weight:600}
+.day h3 .dk.dkover{color:#e67e22;font-weight:600}
 .day .empty{font-size:12.5px;color:var(--mut2);padding:8px 0}
 .prow{display:flex;justify-content:space-between;align-items:center;gap:9px;padding:8px 0;border-top:1px solid var(--soft);font-size:14px}
 .prow:first-of-type{border-top:none}
@@ -387,14 +389,15 @@ function autoPlanWeek(){
     used[pick.id]=1;plan[day]={};plan[day][slot]=pick.id;
   });
   store.set('plan',plan);render();}
-function viewPlan(){var p=getPlan();
+function viewPlan(){var p=getPlan();if(EATERS===null)loadEaters();var g=goalKcal();
   var days=DAYS.map(function(d,i){var ds=p[i]||{};
     var rows=SLOT_ORDER.filter(function(s){return ds[s];}).map(function(s){var r=byId(ds[s]);if(!r)return'';
       return '<div class="prow"><span class="slotb">'+(SLOT_EMO[s]||'')+' '+esc(s)+'</span><span class="t" onclick="openRecipe(\''+r.id+'\')">'+esc(r.title)+'<div class="k">'+((r.macros_per_serving&&r.macros_per_serving.kcal)||'?')+' kcal</div></span><span class="x" onclick="rmPlan('+i+',\''+esc(s)+'\')">×</span></div>';}).join('');
     var kc=dayKcal(ds);
-    return '<div class="day"><h3>'+d+(kc?'<span class="dk">'+kc+' kcal</span>':'')+'</h3>'+(rows||'<div class="empty">— noch nichts geplant —</div>')+'<button class="addslot" onclick="pickDay('+i+')">＋ Gericht in Slot</button></div>';}).join('');
+    var dkc=(kc&&g)?(kc<=g*1.08?' dkok':' dkover'):'';
+    return '<div class="day"><h3>'+d+(kc?'<span class="dk'+dkc+'">'+kc+(g?' / '+g:'')+' kcal</span>':'')+'</h3>'+(rows||'<div class="empty">— noch nichts geplant —</div>')+'<button class="addslot" onclick="pickDay('+i+')">＋ Gericht in Slot</button></div>';}).join('');
   var total=planIds(p).length;
-  return '<div class="topbar"><h1>Wochenplan</h1><div class="sub">'+total+' Gerichte · Slots wie in Notion · ＋ pro Tag</div></div><div class="planbar"><button class="btn btn-p" onclick="autoPlanWeek()">✨ Auto-Woche</button><button class="btn btn-s" onclick="suggestWeek()">🎲 Leere füllen</button></div>'+days+'<div style="height:20px"></div>';
+  return '<div class="topbar"><h1>Wochenplan</h1><div class="sub">'+total+' Gerichte'+(g?' · Ziel '+g+' kcal/Tag':'')+' · Slots wie in Notion</div></div><div class="planbar"><button class="btn btn-p" onclick="autoPlanWeek()">✨ Auto-Woche</button><button class="btn btn-s" onclick="suggestWeek()">🎲 Leere füllen</button></div>'+days+'<div style="height:20px"></div>';
 }
 
 /* ---------- SHOPPING ---------- */
@@ -432,6 +435,10 @@ let P=null;
 async function loadPantry(){try{const r=await SB.rpc('app_pantry');P=(r&&r.data)||[];}catch(e){P=[];}render();}
 let HIST=null;
 async function loadHist(){if(typeof SB==='undefined'||!SB||!SB.rpc)return;try{var r=await SB.rpc('app_ingredient_history');HIST=r.data||[];}catch(e){HIST=[];}render();}
+let EATERS=null;
+async function loadEaters(){if(typeof SB==='undefined'||!SB||!SB.from)return;try{var r=await SB.from('eaters').select('name,is_primary,kcal_goal,protein_goal_g,carb_goal_g,fat_goal_g');EATERS=r.data||[];}catch(e){EATERS=[];}render();}
+function primaryEater(){if(!EATERS||!EATERS.length)return null;return EATERS.filter(function(e){return e.is_primary;})[0]||EATERS[0];}
+function goalKcal(){var p=primaryEater();return (p&&p.kcal_goal)||0;}
 function pAmpel(d){if(d===null||d===undefined)return['',''];if(d<0)return['#c0392b','abgelaufen'];if(d===0)return['#e67e22','heute'];if(d===1)return['#e67e22','morgen'];if(d<=6)return['#d4a017',d+' Tage'];return['#3a7d44',d+' Tage'];}
 function recipesUsing(items){var names=items.map(function(it){return (it.name||'').toLowerCase().trim();}).filter(function(n){return n.length>=3;});
   if(!names.length||!R.length)return[];
