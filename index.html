@@ -616,7 +616,7 @@ function viewShopping(){const p=getPlan();const ids=planIds(p);
   }).join('');
     return `<div class="aisle"><h3>${AISLE_DE[a]}</h3><ul class="shl">${items}</ul></div>`;}).join('');
   const sub=P===null?`${ids.length} Gerichte · Vorrat lädt…`:`${ids.length} Gerichte · ${buyN} zu kaufen${haveN?` · ${haveN} im Vorrat ✓`:''}`;
-  return `<div class="topbar"><h1>Einkaufsliste</h1><div class="sub">${sub}</div></div><div class="planbar"><button class="btn btn-p" onclick="openCartView()">🛒 Warenkorb-Vorschlag</button></div>${html}<div class="btnrow"><button class="btn btn-s" onclick="if(confirm('Abgehakte zurücksetzen?')){store.set('shop_done',{});render();}">Haken zurücksetzen</button></div><div style="height:20px"></div>`;
+  return `<div class="topbar"><h1>Einkaufsliste</h1><div class="sub">${sub}</div></div><div class="planbar"><button class="btn btn-p" onclick="openCartView()">🛒 Einkaufslauf starten (Billa live)</button></div>${html}<div class="btnrow"><button class="btn btn-s" onclick="if(confirm('Abgehakte zurücksetzen?')){store.set('shop_done',{});render();}">Haken zurücksetzen</button></div><div style="height:20px"></div>`;
 }
 function toggleShop(k){const d=store.get('shop_done',{});d[k]=!d[k];store.set('shop_done',d);render();}
 
@@ -742,8 +742,8 @@ function viewCart(){
     +'<div class="cartctl"><div class="seg2"><span class="'+(cartGroup==='art'?'on':'')+'" onclick="setCartGroup(\'art\')">nach Art</span><span class="'+(cartGroup==='tag'?'on':'')+'" onclick="setCartGroup(\'tag\')">nach Tag</span></div><input class="search csearch" placeholder="🔎 Artikel suchen…" value="'+esc(cartQ)+'" oninput="cartSearchInput(this.value)" autocomplete="off"></div>'
     +banner+'<div id="cartBody">'+cartBodyHtml()+'</div>'
     +'<div class="sum"><span class="l">'+store.toUpperCase()+'-Korb gesamt</span><span class="v">'+total.toFixed(2)+' €</span></div>'
-    +'<div class="cfbar"><span>🛒</span><span><b>Billa-Korb füllen:</b> Tippe „In Billa-Korb" — ich lege alle Produkte in den korrekten Mengen in deinen Click&Collect-Korb. <b>Bezahlen & Abholzeit wählst du selbst</b> im Billa-Checkout.</span></div>'
-    +'<div class="btnrow"><button class="btn btn-s" onclick="state.view=\'shopping\';render()">‹ Liste</button><button class="btn btn-s" onclick="refreshCart()" title="neu matchen">↻</button><button class="btn btn-p" onclick="cartFill()">🛒 In Billa-Korb</button></div>'
+    +'<div class="cfbar"><span>🛒</span><span><b>Prüf den Vorschlag</b> (↔ tauschen) — dann „Korb füllen": die Liste kommt in deine Zwischenablage, du tippst auf Billa dein Lesezeichen → Produkte landen im Click&amp;Collect-Korb. <b>Bezahlen wählst du selbst.</b></span></div>'
+    +'<div class="btnrow"><button class="btn btn-s" onclick="state.view=\'shopping\';render()">‹ Liste</button><button class="btn btn-s" onclick="refreshCart()" title="neu matchen">↻</button><button class="btn btn-p" onclick="cartFill()">🛒 Korb füllen</button></div>'
     +'<div class="btnrow" style="margin-top:8px"><button class="btn btn-s" onclick="window.open(\'https://shop.billa.at\',\'_blank\')">Billa öffnen ↗</button><button class="btn btn-s" onclick="cartCheckout()">✓ Schon eingekauft</button></div>'
     +'<div class="chathint" style="padding:10px 16px">Einzelnes Produkt tippen → öffnet die Billa-Seite. ↔ tauschen · 📌 Marke merken. „✓ Schon eingekauft" bucht den Korb in deinen Vorrat (MHD ab heute).</div><div style="height:30px"></div>';
 }
@@ -764,6 +764,9 @@ function cartSwap(idx){var it=(CART&&CART.raw||[])[idx];if(!it)return;var ex=doc
   document.body.appendChild(el);}
 function cartChoose(idx,id){var it=(CART&&CART.raw||[])[idx];if(!it)return;PREFS.overrides=PREFS.overrides||{};PREFS.overrides[(it.ing||'').toLowerCase()]=id;savePrefs();var e=document.getElementById('csEl');if(e)e.remove();render();}
 function cartPin(idx){var it=(CART&&CART.raw||[])[idx];if(!it)return;var ch=chosenFor(it);if(!ch)return;var b=brandToken(ch.name);if(!b){toast('Keine Marke erkannt');return;}PREFS.pins=PREFS.pins||[];if(PREFS.pins.indexOf(b)<0)PREFS.pins.push(b);savePrefs();toast('📌 '+b+' gemerkt');render();}
+const BILLA_BM=`javascript:(async()=>{try{var t='';try{t=await navigator.clipboard.readText();}catch(e){}var items=[];try{items=JSON.parse(t);}catch(e){}if(!Array.isArray(items)||!items.length){alert('Keine Korb-Daten in der Zwischenablage. Erst in CulinaryOS den Lauf pruefen und Korb fuellen tippen.');return;}if(location.hostname.indexOf('billa.at')<0){alert('Bitte auf shop.billa.at ausfuehren.');return;}var m=document.cookie.match(/XSRF-TOKEN=([^;]+)/);if(!m){alert('Bitte zuerst bei shop.billa.at einloggen.');return;}var x=decodeURIComponent(m[1]);var ok=0,f=0;for(var i=0;i<items.length;i++){try{var r=await fetch('/api/carts/items',{method:'POST',headers:{'content-type':'application/json','x-xsrf-token':x},credentials:'include',body:JSON.stringify({sku:items[i].sku,quantity:items[i].qty||1})});if(r.ok)ok++;else f++;}catch(e){f++;}}alert(ok+' Produkte im Billa-Korb'+(f?(' . '+f+' Fehler'):'')+'. Jetzt im Korb pruefen und SELBST bezahlen.');}catch(e){alert('Fehler: '+e);}})();`;
+function copyBM(){navigator.clipboard.writeText(BILLA_BM).then(function(){toast('Lesezeichen-Code kopiert');},function(){toast('Bitte Code manuell markieren');});}
+function copyFillPayload(){var p=(CART&&CART._fillPayload)||'[]';navigator.clipboard.writeText(p).then(function(){toast('Korb-Liste kopiert');},function(){toast('Kopieren blockiert');});}
 async function cartFill(){
   if(typeof SB==='undefined'||!SB||!SB.from){toast('Nur in der Live-App');return;}
   var raw=(CART&&CART.raw)||[];var store=(PREFS&&PREFS.staple_store)||'billa';
@@ -772,23 +775,26 @@ async function cartFill(){
     items.push({sku:ch.sku,name:ch.name,ing:it.ing,qty:it.qty,unit:it.unit,packs:pk,price:ch.price,url:ch.url,image:ch.image,bio:!!ch.bio});});
   if(!items.length){toast('Keine Produkte zum Füllen');return;}
   total=Math.round(total*100)/100;
-  if(!confirm('In Billa-Korb legen?\n'+items.length+' Produkte · '+packsTot+' Packungen · '+total.toFixed(2)+' €\n\nBezahlen & Abholzeit wählst du danach selbst.'))return;
-  toast('Speichere Korb-Lauf…');
-  try{
-    var r=await SB.from('cart_runs').insert({store:store,status:'proposed',total:total,item_count:items.length,items:items,note:'App-Lauf'}).select('id');
-    var rid=r.data&&r.data[0]&&r.data[0].id;
-    if(r.error||!rid){toast('Speichern fehlgeschlagen'+(r.error?': '+r.error.message:''));return;}
-    if(CART)CART._runId=rid;cartFillSheet(rid,items,total,packsTot);
-  }catch(e){toast('Fehler: '+((e&&e.message)||e));}
+  var payload=JSON.stringify(items.map(function(x){return {sku:x.sku,qty:x.packs};}));
+  var copied=false;try{await navigator.clipboard.writeText(payload);copied=true;}catch(e){}  // SKUs sofort in Zwischenablage (Klick-Geste)
+  if(CART){CART._fillPayload=payload;}
+  try{await SB.from('cart_runs').insert({store:store,status:'ready',total:total,item_count:items.length,items:items,note:'App-Lauf'});}catch(e){}  // Record (best effort)
+  cartFillSheet(items,total,packsTot,copied);
 }
-function cartFillSheet(rid,items,total,packsTot){
+function cartFillSheet(items,total,packsTot,copied){
   var ex=document.getElementById('cfEl');if(ex)ex.remove();
   var el=document.createElement('div');el.className='chatov';el.id='cfEl';
-  el.innerHTML='<div class="chathead"><b>🛒 Korb bereit · Lauf #'+rid+'</b><span class="close" onclick="(function(){var e=document.getElementById(\'cfEl\');if(e)e.remove();})()">Schließen ✕</span></div><div class="chatbody">'
-   +'<div class="cfbar"><span>✅</span><span><b>'+items.length+' Produkte · '+packsTot+' Packungen · '+total.toFixed(2)+' €</b> gespeichert.</span></div>'
-   +'<div class="spgrp">So kommt der Korb zu Billa</div>'
-   +'<div class="chathint">1️⃣ Sag mir im Chat: <b>„fülle den Billa-Korb"</b> — ich lege alle Produkte in den korrekten Mengen in deinen Click&amp;Collect-Korb.<br>2️⃣ Oder tippe unten ein Produkt → öffnet die Billa-Seite zum selbst Reinlegen.<br>🔒 <b>Bezahlen &amp; Abholzeit</b> wählst immer du selbst — ich stoppe davor.</div>'
-   +'<div class="spgrp">Produkte ('+packsTot+' Packungen)</div>'
+  el.innerHTML='<div class="chathead"><b>🛒 Korb füllen</b><span class="close" onclick="(function(){var e=document.getElementById(\'cfEl\');if(e)e.remove();})()">Schließen ✕</span></div><div class="chatbody">'
+   +'<div class="cfbar"><span>'+(copied?'✅':'📋')+'</span><span>'+(copied?('<b>'+items.length+' Produkte ('+packsTot+' Packg. · '+total.toFixed(2)+' €) in die Zwischenablage kopiert.</b>'):'<b>Konnte nicht automatisch kopieren.</b> Tippe „Liste kopieren".')+'</span></div>'
+   +(copied?'':'<div class="btnrow" style="margin-bottom:8px"><button class="btn btn-s" onclick="copyFillPayload()">📋 Liste kopieren</button></div>')
+   +'<div class="spgrp">Jetzt Korb füllen</div>'
+   +'<div class="chathint">1️⃣ <b>Billa öffnen</b> (eingeloggt) → 2️⃣ dein Lesezeichen <b>„Billa-Korb füllen"</b> antippen → legt die '+packsTot+' Packungen rein. 🔒 <b>Bezahlen wählst du selbst.</b></div>'
+   +'<div class="btnrow"><button class="btn btn-p" onclick="window.open(\'https://shop.billa.at/warenkorb\',\'_blank\')">Billa öffnen ↗</button></div>'
+   +'<div class="spgrp">Einmalig: Lesezeichen einrichten</div>'
+   +'<div class="chathint">In Safari ein Lesezeichen anlegen → bearbeiten → die Adresse durch diesen Code ersetzen (Name z.B. „Billa-Korb füllen"):</div>'
+   +'<textarea readonly onclick="this.select()" style="width:100%;height:90px;font:11px/1.4 monospace;border:1px solid var(--line);border-radius:10px;padding:9px;background:var(--soft);color:var(--ink);-webkit-user-select:all">'+esc(BILLA_BM)+'</textarea>'
+   +'<div class="btnrow" style="margin-top:6px"><button class="btn btn-s" onclick="copyBM()">📋 Code kopieren (nur Einrichtung)</button></div>'
+   +'<div class="spgrp">Produkte ('+packsTot+' Packg.)</div>'
    +items.map(function(x){var img=x.image?'<img src="'+esc(x.image)+'" loading="lazy" onerror="this.style.display=\'none\'">':'';return '<a class="csw" href="'+(x.url?'https://shop.billa.at/produkte/'+esc(x.url):'https://shop.billa.at')+'" target="_blank" rel="noopener" style="text-decoration:none;color:inherit"><div class="ct">'+(x.bio?'🌿':'🛒')+img+'</div><div class="cn"><div class="cnt">'+esc(x.name)+(x.packs>1?' <span class="bbio">'+x.packs+'×</span>':'')+'</div><div class="cnm"><span>für '+esc(x.ing)+' · '+esc(fmtQty(x.qty,x.unit||'',1))+'</span></div></div><div class="cpx">'+(+x.price*x.packs).toFixed(2)+' €</div></a>';}).join('')
    +'<div style="height:30px"></div></div>';
   document.body.appendChild(el);
