@@ -254,7 +254,7 @@ const store = {
 };
 let state = {view:'recipes', slot:'Alle', q:'', servings:{}, recipe:null};
 const byId = id => R.find(r=>r.id===id);
-function applyTheme(){var t=store.get('theme',null);if(t!=='dark'&&t!=='light'){t=(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light';}document.body.classList.toggle('dark',t==='dark');var b=document.getElementById('themeTgl');if(b)b.textContent=t==='dark'?'☀️':'🌙';}
+function applyTheme(){var t=store.get('theme',null);if(t!=='dark'&&t!=='light')t='light';document.body.classList.toggle('dark',t==='dark');var b=document.getElementById('themeTgl');if(b)b.textContent=t==='dark'?'☀️':'🌙';}
 function toggleTheme(){var dark=!document.body.classList.contains('dark');store.set('theme',dark?'dark':'light');applyTheme();}
 applyTheme();
 if('serviceWorker' in navigator&&location.protocol.indexOf('http')===0){navigator.serviceWorker.register('sw.js').catch(function(){});}
