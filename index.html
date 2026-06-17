@@ -451,10 +451,14 @@ function openCook(id){const r=byId(id);
   }).join('');
   cookEl=document.createElement('div');cookEl.className='cook';
   cookEl.innerHTML=`<div class="top"><h2>${esc(r.title)}</h2><span class="close" onclick="closeCook()">Fertig ✓</span></div>
-    <div style="font-size:12.5px;color:var(--mut2);padding:2px 16px 0">${total} Schritte · ${sv} Portionen · Mengen je Teil oben</div>${blocks}<div style="padding:12px 16px 0"><button class="btn btn-p" style="width:100%" onclick="cookApply('${r.id}')">✓ Gekocht — Vorrat abbuchen</button></div><div style="height:40px"></div>`;
-  document.body.appendChild(cookEl);document.body.style.overflow='hidden';
+    <div style="font-size:12.5px;color:var(--mut2);padding:2px 16px 0">${total} Schritte · ${sv} Portionen · Mengen je Teil oben${('wakeLock' in navigator)?' · 📱 Display bleibt an':''}</div>${blocks}<div style="padding:12px 16px 0"><button class="btn btn-p" style="width:100%" onclick="cookApply('${r.id}')">✓ Gekocht — Vorrat abbuchen</button></div><div style="height:40px"></div>`;
+  document.body.appendChild(cookEl);document.body.style.overflow='hidden';acquireWake();
 }
-function closeCook(){if(cookEl){cookEl.remove();cookEl=null;}document.body.style.overflow='';render();}
+function closeCook(){if(cookEl){cookEl.remove();cookEl=null;}document.body.style.overflow='';releaseWake();render();}
+let wakeLk=null;
+async function acquireWake(){try{if('wakeLock' in navigator)wakeLk=await navigator.wakeLock.request('screen');}catch(e){}}
+function releaseWake(){try{if(wakeLk){wakeLk.release();wakeLk=null;}}catch(e){}}
+document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible'&&cookEl)acquireWake();});
 async function cookApply(id){
   if(typeof SB==='undefined'||!SB||!SB.rpc){toast('Vorrat-Abbuchen nur in der Live-App');return;}
   var r=byId(id);var base=(r&&r.base_servings)||2;var sv=state.servings[id]||base;var rid=(r&&r.rid)||id;
