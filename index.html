@@ -752,7 +752,8 @@ function cartSwap(idx){var it=(CART&&CART.raw||[])[idx];if(!it)return;var ex=doc
     var nm=[];if(c.sizeLabel)nm.push('<span>'+esc(c.sizeLabel)+'</span>');if(c.unit_price!=null)nm.push('<span>'+c.unit_price.toFixed(2)+' €/'+esc(c.unit_base||'')+'</span>');if(c.promo)nm.push('<span class="oth">Aktion</span>');
     return '<div class="csw'+sel+'" onclick="cartChoose('+idx+',\''+esc(c.id)+'\')"><div class="ct">'+(c.bio?'🌿':'🛒')+img+'</div><div class="cn"><div class="cnt">'+esc(c.name)+(c.bio?' <span class="bbio">BIO</span>':'')+(sel?' ✓':'')+'</div><div class="cnm">'+nm.join('')+'</div></div><div class="cpx">'+(+c.price).toFixed(2)+' €</div></div>';}
   var el=document.createElement('div');el.className='chatov';el.id='csEl';
-  el.innerHTML='<div class="chathead"><b>↔ '+esc(it.ing)+' · '+esc(fmtQty(it.qty,it.unit||'',1))+'</b><span class="close" onclick="(function(){var e=document.getElementById(\'csEl\');if(e)e.remove();})()">Fertig ✕</span></div><div class="chatbody">'
+  var swMeta=((CART&&CART.qmap)||[]).filter(function(x){return (x.name||'').toLowerCase()===(it.ing||'').toLowerCase();})[0];
+  el.innerHTML='<div class="chathead"><b>↔ '+esc(it.ing)+' · '+needText(it,swMeta)+'</b><span class="close" onclick="(function(){var e=document.getElementById(\'csEl\');if(e)e.remove();})()">Fertig ✕</span></div><div class="chatbody">'
     +(bioC.length?'<div class="spgrp">🌿 Bio / deine Marken</div>'+bioC.map(card).join(''):'')
     +(other.length?'<div class="spgrp">Weitere / günstiger</div>'+other.map(card).join(''):'')
     +(cands.length?'':'<div class="chathint">Keine Treffer im Sortiment. Tippe oben den Produktnamen anders oder kauf manuell.</div>')+'<div style="height:20px"></div></div>';
