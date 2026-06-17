@@ -617,10 +617,14 @@ function aisleToLoc(a,name){if(isTK(name)||a==='tiefkuehl')return 'gefrier';if(a
   if(['molkerei_eier','fleisch','fisch_meeresfruechte','gemuese','obst','kraeuter'].indexOf(a)>=0)return 'kuehlschrank';return 'speis';}
 async function loadPrefs(){if(typeof SB==='undefined'||!SB||!SB.from){PREFS={bio_level:'near',staple_store:'billa',pins:[],overrides:{}};return;}try{var r=await SB.from('shopping_prefs').select('*').eq('id',1);PREFS=(r.data&&r.data[0])||{bio_level:'near',staple_store:'billa',pins:[],overrides:{}};}catch(e){PREFS={bio_level:'near',staple_store:'billa',pins:[],overrides:{}};}}
 async function savePrefs(){if(typeof SB==='undefined'||!SB||!SB.from||!PREFS)return;try{await SB.from('shopping_prefs').update({overrides:PREFS.overrides,pins:PREFS.pins,bio_level:PREFS.bio_level,staple_store:PREFS.staple_store}).eq('id',1);}catch(e){}}
+function cleanCore(n){var s=(n||'').toLowerCase().split(',')[0].split(' oder ')[0].replace(/\([^)]*\)/g,' ');
+  s=s.replace(/\b(frische[rs]?|reife[rs]?|fein(e|es)?|grob(e|es)?|gehackt(e|es)?|gerieben(e|es)?|gesch(ä|ae)lt(e|es)?|getrocknet(e|es)?|gew(ü|ue)rfelt(e|es)?|ger(ö|oe)stet(e|es)?|ungesalzen|gesalzen|optional|nach geschmack|zum garnieren)\b/g,' ');
+  return s.replace(/[^a-zA-Zäöüßäöü0-9 \-]/g,' ').replace(/\s+/g,' ').trim();}
+function titleCase(s){return s?s.charAt(0).toUpperCase()+s.slice(1):s;}
 function shoppingBuyList(){var p=getPlan();var agg={};
   Object.keys(p).forEach(function(d){var di=+d;var ds=p[d];if(!ds)return;Object.keys(ds).forEach(function(m){var id=ds[m];if(!id)return;var r=byId(id);if(!r)return;
-    (r.components||[]).forEach(function(c){(c.ingredients||[]).forEach(function(i){var e=agg[i.name]=agg[i.name]||{u:{},aisle:i.aisle||guessAisle(i.name),days:{}};var u=i.unit||'';e.u[u]=(e.u[u]||0)+(+i.qty||0);if(!isNaN(di))e.days[di]=1;});});});});
-  var out=[];Object.keys(agg).forEach(function(nm){var e=agg[nm];Object.keys(e.u).forEach(function(u){var q=e.u[u];if(!q)return;var have=pantryHave(nm,u);var rest=Math.max(0,q-have);if(rest>1e-9)out.push({name:nm,qty:Math.round(rest*100)/100,unit:u,aisle:e.aisle,days:Object.keys(e.days).map(Number).sort(function(a,b){return a-b;})});});});
+    (r.components||[]).forEach(function(c){(c.ingredients||[]).forEach(function(i){var key=cleanCore(i.name)||(i.name||'').toLowerCase();if(!key)return;var e=agg[key]=agg[key]||{name:titleCase(key),u:{},aisle:i.aisle||guessAisle(i.name),days:{}};var u=i.unit||'';e.u[u]=(e.u[u]||0)+(+i.qty||0);if(!isNaN(di))e.days[di]=1;});});});});
+  var out=[];Object.keys(agg).forEach(function(k){var e=agg[k];Object.keys(e.u).forEach(function(u){var q=e.u[u];if(!q)return;var have=pantryHave(e.name,u);var rest=Math.max(0,q-have);if(rest>1e-9)out.push({name:e.name,qty:Math.round(rest*100)/100,unit:u,aisle:e.aisle,days:Object.keys(e.days).map(Number).sort(function(a,b){return a-b;})});});});
   return out;}
 function scoreCand(c){var s=0,prefs=PREFS||{};var pins=prefs.pins||[];if(pins.some(function(p){return p&&(c.name||'').toLowerCase().indexOf(p.toLowerCase())>=0;}))s+=10;if(c.bio&&(prefs.bio_level||'near')!=='off')s+=2;return s;}
 var SIM_OK=0.55; // ab hier gilt ein Treffer als sicher
@@ -638,23 +642,25 @@ function chosenFor(it){var cands=it.cands||[];var prefs=PREFS||{};var store=pref
 }
 function otherStoreBest(it,store){return (it.cands||[]).filter(function(c){return c.store!==store&&c.unit_price!=null;}).sort(function(a,b){return a.unit_price-b.unit_price;})[0];}
 function brandToken(name){var w=(name||'').replace(/^[^A-Za-zÀ-ÿ]+/,'').split(/\s+/)[0]||'';return w.replace(/[^A-Za-zÀ-ÿ!*]/g,'');}
-function openCartView(){state.view='cart';CART=null;render();}
-async function buildCart(){if(PREFS===null)await loadPrefs();if(P===null)loadPantry();
-  if(typeof SB==='undefined'||!SB||!SB.rpc){CART={err:'Warenkorb-Vorschlag nur in der Live-App'};render();return;}
+function cartSig(){try{return JSON.stringify(shoppingBuyList().map(function(x){return [x.name,x.qty,x.unit];}))+'|'+JSON.stringify((PREFS&&PREFS.pins)||[])+'|'+JSON.stringify((PREFS&&PREFS.overrides)||{})+'|'+((PREFS&&PREFS.staple_store)||'');}catch(e){return null;}}
+function openCartView(){state.view='cart';if(!(CART&&CART.raw&&CART._sig&&CART._sig===cartSig()))CART=null;render();}  // Cache: nur neu wenn sich was änderte
+function refreshCart(){CART=null;render();}
+async function buildCart(){if(PREFS===null)await loadPrefs();if(P===null)loadPantry();var sig=cartSig();
+  if(typeof SB==='undefined'||!SB||!SB.rpc){CART={err:'Warenkorb-Vorschlag nur in der Live-App',_sig:sig};render();return;}
   var items=shoppingBuyList();
-  if(!items.length){CART={empty:(planIds(getPlan()).length?'covered':'noplan')};render();return;}
+  if(!items.length){CART={empty:(planIds(getPlan()).length?'covered':'noplan'),_sig:sig};render();return;}
   CART={loading:true,n:items.length};render();   // Fortschritt anzeigen
   try{
     var inv=SB.functions?await SB.functions.invoke('cart_match_ai',{body:{items:items}}):{error:'nofn'};
     if(inv&&!inv.error&&inv.data&&Array.isArray(inv.data.items)){
-      CART={raw:inv.data.items,ai:!!inv.data.ai,note:inv.data.note,qmap:items};
+      CART={raw:inv.data.items,ai:!!inv.data.ai,note:inv.data.note,qmap:items,_sig:sig};
     }else{ // Fallback: direkter Trigram-RPC
       var r=await SB.rpc('app_cart_match',{p_items:items});
-      CART={raw:(r&&r.data)||[],ai:false,note:'fallback',qmap:items};
+      CART={raw:(r&&r.data)||[],ai:false,note:'fallback',qmap:items,_sig:sig};
     }
   }catch(e){
-    try{var r2=await SB.rpc('app_cart_match',{p_items:items});CART={raw:(r2&&r2.data)||[],ai:false,note:'fallback',qmap:items};}
-    catch(e2){CART={err:(e2&&e2.message)||'Matching fehlgeschlagen'};}
+    try{var r2=await SB.rpc('app_cart_match',{p_items:items});CART={raw:(r2&&r2.data)||[],ai:false,note:'fallback',qmap:items,_sig:sig};}
+    catch(e2){CART={err:(e2&&e2.message)||'Matching fehlgeschlagen',_sig:sig};}
   }
   render();}
 function cartLoading(msg){return '<div class="topbar"><h1>🛒 Warenkorb-Vorschlag</h1><div class="sub">stellt zusammen…</div></div><div class="psec"><div class="chathint" style="padding:14px;text-align:center">⏳ '+esc(msg)+'</div></div>';}
@@ -699,7 +705,7 @@ function viewCart(){
     +'<div class="cartctl"><div class="seg2"><span class="'+(cartGroup==='art'?'on':'')+'" onclick="setCartGroup(\'art\')">nach Art</span><span class="'+(cartGroup==='tag'?'on':'')+'" onclick="setCartGroup(\'tag\')">nach Tag</span></div><input class="search csearch" placeholder="🔎 Artikel suchen…" value="'+esc(cartQ)+'" oninput="cartSearchInput(this.value)" autocomplete="off"></div>'
     +banner+'<div id="cartBody">'+cartBodyHtml()+'</div>'
     +'<div class="sum"><span class="l">'+store.toUpperCase()+'-Korb gesamt</span><span class="v">'+total.toFixed(2)+' €</span></div>'
-    +'<div class="btnrow"><button class="btn btn-s" onclick="state.view=\'shopping\';render()">‹ Liste</button><button class="btn btn-s" onclick="window.open(\'https://shop.billa.at\',\'_blank\')">Billa ↗</button><button class="btn btn-p" onclick="cartCheckout()">✓ Eingekauft</button></div>'
+    +'<div class="btnrow"><button class="btn btn-s" onclick="state.view=\'shopping\';render()">‹ Liste</button><button class="btn btn-s" onclick="refreshCart()" title="neu matchen">↻</button><button class="btn btn-s" onclick="window.open(\'https://shop.billa.at\',\'_blank\')">Billa ↗</button><button class="btn btn-p" onclick="cartCheckout()">✓ Eingekauft</button></div>'
     +'<div class="chathint" style="padding:10px 16px">Tippe ein Produkt → öffnet die Billa-Seite zum Reinlegen. ↔ tauschen, 📌 Marke merken. Bestellen & zahlen machst du selbst.</div><div style="height:30px"></div>';
 }
 function navBackShop(){return '<div class="btnrow"><button class="btn btn-s" onclick="state.view=\'shopping\';render()">‹ zurück zur Liste</button></div>';}
