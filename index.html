@@ -420,7 +420,7 @@ const SUBS={
  'frischkäse':['Quark','Ricotta'],'ricotta':['Quark','Hüttenkäse (passiert)'],'mascarpone':['Frischkäse + Sahne'],
  'kreuzkümmel':['Kümmel (mild)','Garam Masala'],'tomatenmark':['passierte Tomaten (eingekocht)']
 };
-function subsFor(r){var seen={},out=[];(r.components||[]).forEach(function(c){(c.ingredients||[]).forEach(function(i){var nm=(i.name||'').toLowerCase();Object.keys(SUBS).forEach(function(k){if(nm.indexOf(k)>=0&&!seen[k]){seen[k]=1;out.push({name:i.name,alts:SUBS[k]});}});});});return out;}
+function subsFor(r){var seen={},out=[];(r.components||[]).forEach(function(c){(c.ingredients||[]).forEach(function(i){var nm=(i.name||'').toLowerCase();var toks=nm.split(/[^a-zäöüßàâéèêîçñ]+/).filter(Boolean);Object.keys(SUBS).forEach(function(k){if(seen[k])return;var hit=k.indexOf(' ')>=0?nm.indexOf(k)>=0:toks.indexOf(k)>=0;if(!hit)return;var alts=SUBS[k].filter(function(a){return a.toLowerCase()!==nm;});if(alts.length){seen[k]=1;out.push({name:i.name,alts:alts});}});});});return out;}
 function viewDetail(){const r=state.recipe; if(!r) return viewRecipes();
   if(RATE===null)loadRatings();
   const rid=r.rid||r.id;
@@ -563,7 +563,7 @@ function viewShopping(){const p=getPlan();const ids=planIds(p);
   if(P===null)loadPantry();
   const agg={}; // aisle -> name -> {u:{unit:qty}, rec:{notionId:title}}
   ids.forEach(id=>{const r=byId(id);if(!r)return;r.components.forEach(c=>c.ingredients.forEach(i=>{
-    const a=i.aisle||'snacks_sonstiges';const key=i.name;agg[a]=agg[a]||{};
+    const a=i.aisle||guessAisle(i.name);const key=i.name;agg[a]=agg[a]||{};
     const e=agg[a][key]=agg[a][key]||{u:{},rec:{}};
     const u=i.unit||'';e.u[u]=(e.u[u]||0)+(+i.qty||0);e.rec[id]=r.title;
   }));});
@@ -592,10 +592,26 @@ function toggleShop(k){const d=store.get('shop_done',{});d[k]=!d[k];store.set('s
 
 /* ---------- WARENKORB-VORSCHLAG (Auto-Cart) ---------- */
 let PREFS=null, CART=null;
+function isTK(n){return /\b(tk|tiefk(ü|ue)hl|tiefkuehl|gefroren)\b/.test((n||'').toLowerCase());}
+function guessAisle(n){n=(n||'').toLowerCase();var M=[
+  ['tiefkuehl',/\b(tk|tiefk(ü|ue)hl|gefroren|eiscreme)\b/],
+  ['fleisch',/(rind|h(ä|ae)hnch|h(ü|ue)hn|huhn|pute|schwein|faschiert|speck|w(ü|ue)rst|schinken|lamm|hack|h(ä|ae)hnchenfilet|steak|bacon)/],
+  ['fisch_meeresfruechte',/(lachs|fisch|thunfisch|garnel|shrimp|scampi|tintenfisch|forelle|kabeljau|nori|sushi)/],
+  ['molkerei_eier',/(milch|butter|k(ä|ae)se|joghurt|topfen|rahm|sahne|obers|\bei\b|eier|feta|halloumi|mozzarella|parmesan|frischk|skyr|creme|cr(è|e)me|cremefine)/],
+  ['obst',/(apfel|birne|banane|beere|himbeer|heidelbeer|erdbeer|zitron|limette|orange|mango|traube|melone|pfirsich|avocado)/],
+  ['gemuese',/(zwiebel|knoblauch|karotte|m(ö|oe)hre|tomate|gurke|salat|spinat|paprika|\bkohl|kartoffel|lauch|sellerie|zucchini|aubergine|brokkoli|kohlrabi|champignon|pilz|ingwer|chili|kr(ä|ae)uter|petersil|basilikum|koriander|schalotte|fr(ü|ue)hlingszwiebel|limetten)/],
+  ['gewuerze_oele',/(\b(ö|oe)l\b|oliven(ö|oe)l|sesam(ö|oe)l|essig|salz|pfeffer|gew(ü|ue)rz|kreuzk(ü|ue)mmel|kurkuma|sojaso(ß|ss)e|sojasauce|fischsauce|senf)/],
+  ['backen_suess',/(zucker|honig|schokolade|kakao|vanille|backpulver|hefe|st(ä|ae)rke|speisest(ä|ae)rke|sirup)/],
+  ['trockenwaren_konserven',/(reis|nudel|pasta|spaghetti|linse|bohne|kichererbse|couscous|quinoa|haferflocke|tomatenmark|kokosmilch|br(ü|ue)he|mehl|sugo|sesam|tortilla)/],
+  ['brot_backwaren',/(brot|br(ö|oe)tchen|semmel|toast|baguette|wrap|fladen|salzstangerl)/],
+  ['getraenke',/(wasser|saft|limo|cola|\btee\b|kaffee|smoothie)/]];
+  for(var i=0;i<M.length;i++)if(M[i][1].test(n))return M[i][0];return 'snacks_sonstiges';}
+function aisleToLoc(a,name){if(isTK(name)||a==='tiefkuehl')return 'gefrier';if(a==='gewuerze_oele')return 'gewuerzregal';
+  if(['molkerei_eier','fleisch','fisch_meeresfruechte','gemuese','obst','kraeuter'].indexOf(a)>=0)return 'kuehlschrank';return 'speis';}
 async function loadPrefs(){if(typeof SB==='undefined'||!SB||!SB.from){PREFS={bio_level:'near',staple_store:'billa',pins:[],overrides:{}};return;}try{var r=await SB.from('shopping_prefs').select('*').eq('id',1);PREFS=(r.data&&r.data[0])||{bio_level:'near',staple_store:'billa',pins:[],overrides:{}};}catch(e){PREFS={bio_level:'near',staple_store:'billa',pins:[],overrides:{}};}}
 async function savePrefs(){if(typeof SB==='undefined'||!SB||!SB.from||!PREFS)return;try{await SB.from('shopping_prefs').update({overrides:PREFS.overrides,pins:PREFS.pins,bio_level:PREFS.bio_level,staple_store:PREFS.staple_store}).eq('id',1);}catch(e){}}
 function shoppingBuyList(){var ids=planIds(getPlan());var agg={};
-  ids.forEach(function(id){var r=byId(id);if(!r)return;(r.components||[]).forEach(function(c){(c.ingredients||[]).forEach(function(i){var e=agg[i.name]=agg[i.name]||{u:{},aisle:i.aisle||null};var u=i.unit||'';e.u[u]=(e.u[u]||0)+(+i.qty||0);});});});
+  ids.forEach(function(id){var r=byId(id);if(!r)return;(r.components||[]).forEach(function(c){(c.ingredients||[]).forEach(function(i){var e=agg[i.name]=agg[i.name]||{u:{},aisle:i.aisle||guessAisle(i.name)};var u=i.unit||'';e.u[u]=(e.u[u]||0)+(+i.qty||0);});});});
   var out=[];Object.keys(agg).forEach(function(nm){var e=agg[nm];Object.keys(e.u).forEach(function(u){var q=e.u[u];if(!q)return;var have=pantryHave(nm,u);var rest=Math.max(0,q-have);if(rest>1e-9)out.push({name:nm,qty:Math.round(rest*100)/100,unit:u,aisle:e.aisle});});});
   return out;}
 function scoreCand(c){var s=0,prefs=PREFS||{};var pins=prefs.pins||[];if(pins.some(function(p){return p&&(c.name||'').toLowerCase().indexOf(p.toLowerCase())>=0;}))s+=10;if(c.bio&&(prefs.bio_level||'near')!=='off')s+=2;return s;}
@@ -613,16 +629,24 @@ function chosenFor(it){var cands=it.cands||[];if(!cands.length)return null;var p
 function otherStoreBest(it,store){return (it.cands||[]).filter(function(c){return c.store!==store&&c.unit_price!=null;}).sort(function(a,b){return a.unit_price-b.unit_price;})[0];}
 function brandToken(name){var w=(name||'').replace(/^[^A-Za-zÀ-ÿ]+/,'').split(/\s+/)[0]||'';return w.replace(/[^A-Za-zÀ-ÿ!*]/g,'');}
 function openCartView(){state.view='cart';CART=null;render();}
-async function buildCart(){if(PREFS===null)await loadPrefs();
+async function buildCart(){if(PREFS===null)await loadPrefs();if(P===null)loadPantry();
   if(typeof SB==='undefined'||!SB||!SB.rpc){CART={err:'Warenkorb-Vorschlag nur in der Live-App'};render();return;}
-  var items=shoppingBuyList();if(!items.length){CART={raw:[]};render();return;}
-  try{var r=await SB.rpc('app_cart_match',{p_items:items});CART={raw:r.data||[],qmap:items};}catch(e){CART={err:'Fehler beim Laden der Preise'};}
+  var items=shoppingBuyList();
+  if(!items.length){CART={empty:(planIds(getPlan()).length?'covered':'noplan')};render();return;}
+  CART={loading:true,n:items.length};render();   // Fortschritt anzeigen
+  try{var r=await SB.rpc('app_cart_match',{p_items:items});
+    if(r&&r.error){CART={err:(r.error.message||'Matching-Fehler')+' — evtl. zu viele Artikel; sag Bescheid.'};}
+    else CART={raw:(r&&r.data)||[],qmap:items};
+  }catch(e){CART={err:(e&&e.message)||'Fehler beim Laden der Preise'};}
   render();}
+function cartLoading(msg){return '<div class="topbar"><h1>🛒 Warenkorb-Vorschlag</h1><div class="sub">stellt zusammen…</div></div><div class="psec"><div class="chathint" style="padding:14px;text-align:center">⏳ '+esc(msg)+'</div></div>';}
 function viewCart(){
-  if(CART===null){buildCart();return '<div class="topbar"><h1>Warenkorb</h1><div class="sub">stellt zusammen…</div></div><div class="empty-big">Preise & Produkte werden gematcht…</div>';}
-  if(CART.err)return '<div class="topbar"><h1>Warenkorb</h1></div><div class="empty-big">'+esc(CART.err)+'</div>'+navBackShop();
+  if(CART===null){buildCart();return cartLoading('Produkte & Preise werden gematcht…');}
+  if(CART.loading)return cartLoading('Matche '+(CART.n||'')+' Artikel mit Billa/SPAR…');
+  if(CART.err)return '<div class="topbar"><h1>Warenkorb</h1></div><div class="empty-big">⚠ '+esc(CART.err)+'</div>'+navBackShop();
+  if(CART.empty)return '<div class="topbar"><h1>Warenkorb-Vorschlag</h1></div><div class="empty-big">'+(CART.empty==='noplan'?'Noch nichts geplant.<br>Füge im <b>Plan</b> Gerichte hinzu — dann stelle ich den Korb zusammen.':'Alles schon im Vorrat ✓<br>Nichts zu kaufen für den aktuellen Plan.')+'</div>'+navBackShop();
   var raw=CART.raw||[];var store=(PREFS&&PREFS.staple_store)||'billa';
-  if(!raw.length)return '<div class="topbar"><h1>Warenkorb-Vorschlag</h1><div class="sub">Nichts zu kaufen — alles im Vorrat oder nichts geplant.</div></div>'+navBackShop();
+  if(!raw.length)return '<div class="topbar"><h1>Warenkorb-Vorschlag</h1></div><div class="empty-big">Keine Treffer gefunden.</div>'+navBackShop();
   var total=0, savings=0, saveItems=0, miss=0;
   var rows=raw.map(function(it,idx){var ch=chosenFor(it);
     if(!ch){miss++;return '<div class="cit miss"><div class="mid"><div class="ing">'+esc(it.ing)+'</div><div class="prod">kein Treffer · '+esc(fmtQty(it.qty,it.unit||'',1))+'</div></div><div class="right"><span class="cact" onclick="cartSwap('+idx+')">suchen</span></div></div>';}
@@ -669,7 +693,7 @@ async function cartCheckout(){
     var rc=await SB.from('receipts').insert({merchant:store,purchased_at:today,total:total,currency:'EUR',raw_text:'App-Einkauf '+today}).select('id');
     var rid=rc.data&&rc.data[0]&&rc.data[0].id;
     if(rid){await SB.from('receipt_lines').insert(chosen.map(function(x,i){return {receipt_id:rid,position:i+1,raw_name:x.ch.name,qty:x.it.qty,unit:x.it.unit||'Stk',price:x.ch.price};}));}
-    await SB.from('pantry_items').insert(chosen.map(function(x){var a=qmap[(x.it.ing||'').toLowerCase()];return {name:x.it.ing,normalized_name:(x.it.ing||'').toLowerCase(),qty:x.it.qty,unit:x.it.unit||'Stk',category:(a&&a.aisle)||null,purchased_at:today,note:'Einkauf '+today};}));
+    await SB.from('pantry_items').insert(chosen.map(function(x){var qa=qmap[(x.it.ing||'').toLowerCase()];var cat=(qa&&qa.aisle)||guessAisle(x.it.ing);var nm=x.it.ing+' '+((x.ch&&x.ch.name)||'');return {name:x.it.ing,normalized_name:(x.it.ing||'').toLowerCase(),qty:x.it.qty,unit:x.it.unit||'Stk',category:cat,location:aisleToLoc(cat,nm),purchased_at:today,note:'Einkauf '+today};}));
     P=null;HIST=null;ITX=null;CART=null;toast('✓ '+chosen.length+' Artikel im Vorrat erfasst');state.view='vorrat';render();
   }catch(e){toast('Fehler beim Erfassen');}
 }
