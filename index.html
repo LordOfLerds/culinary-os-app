@@ -278,6 +278,11 @@ function toggleFav(id,ev){if(ev)ev.stopPropagation();var f=getFav();if(f[id])del
 function getRecent(){return store.get('recent',[]);}
 function pushRecent(id){var a=getRecent().filter(function(x){return x!==id;});a.unshift(id);if(a.length>10)a=a.slice(0,10);store.set('recent',a);}
 function toggleFavOnly(){state.favOnly=!state.favOnly;render();}
+function getCookLog(){return store.get('cooklog',[]);}
+function logCook(rid,sv,kcal){var l=getCookLog();l.push({rid:rid,d:new Date().toISOString().slice(0,10),sv:sv,kcal:kcal});store.set('cooklog',l);}
+function cookCount(rid){return getCookLog().filter(function(c){return c.rid===rid;}).length;}
+function lastCook(rid){var cs=getCookLog().filter(function(c){return c.rid===rid;});return cs.length?cs[cs.length-1].d:null;}
+function markCooked(){var r=state.recipe;if(!r)return;var rid=r.rid||r.id;var base=r.base_servings||2;var sv=state.servings[r.id]||base;var kc=Math.round(((r.macros_per_serving&&r.macros_per_serving.kcal)||0)*sv);logCook(rid,sv,kc);toast('✓ als gekocht vermerkt ('+cookCount(rid)+'×)');render();}
 function dinnerSuggestions(){var fav=getFav(),recent=getRecent(),out=[],used={};
   function add(r,reason){if(r&&!used[r.id]){used[r.id]=1;out.push({r:r,reason:reason});}}
   if(typeof P!=='undefined'&&P&&P.length){var soon=P.filter(function(it){return it.days!=null&&it.days<=6;});
@@ -308,7 +313,7 @@ function viewRecipes(){
   if(q) list=list.filter(r=>(r.title+' '+(r.subtitle||'')+' '+(r.tags||[]).join(' ')+' '+(r.cuisine||[]).join(' ')+' '+(r.protein||'')+' '+(r.category_label||'')).toLowerCase().includes(q));
   const sort=state.sort||'slot'; const num=v=>(v==null?1e9:v);
   const kc=r=>num(r.macros_per_serving&&r.macros_per_serving.kcal);
-  list=list.slice().sort((a,b)=> sort==='kcald'?kc(b)-kc(a) : sort==='kcal'?kc(a)-kc(b) : sort==='time'?num(a.total_minutes)-num(b.total_minutes) : sort==='title'?(a.title||'').localeCompare(b.title||'') : ((a.slot||'').localeCompare(b.slot||'')||(a.title||'').localeCompare(b.title||'')));
+  list=list.slice().sort((a,b)=> sort==='kcald'?kc(b)-kc(a) : sort==='kcal'?kc(a)-kc(b) : sort==='time'?num(a.total_minutes)-num(b.total_minutes) : sort==='title'?(a.title||'').localeCompare(b.title||'') : sort==='cooked'?(cookCount(b.rid||b.id)-cookCount(a.rid||a.id)) : ((a.slot||'').localeCompare(b.slot||'')||(a.title||'').localeCompare(b.title||'')));
   const active=state.cuisine||state.course||state.protein;
   if(P===null)loadPantry();
   const sugg=(!q&&!active&&!state.favOnly)?dinnerSuggestions():[];
@@ -318,7 +323,7 @@ function viewRecipes(){
   const recentRow=(!q&&!active&&!state.favOnly&&recent.length>1)?'<div class="recent"><div class="rlbl">Zuletzt angesehen</div><div class="rrow">'+recent.slice(0,8).map(function(r){return '<div class="rcard" onclick="openRecipe(\''+r.id+'\')"><div class="rcs">'+esc(r.slot||'')+'</div><div class="rct">'+esc(r.title)+'</div></div>';}).join('')+'</div></div>':'';
   return `<div class="topbar"><div class="tbrow"><h1>🍳 Culinary OS</h1><button class="impbtn" onclick="openImport()">🔗 Import</button></div><div class="sub">${R.length} Rezepte · dein Kochbuch</div>
     <input class="search" placeholder="Suchen: Titel, Küche, Tag…" value="${esc(state.q)}" oninput="state.q=this.value;render()">
-    <div class="filters">${sel('cuisine','Küche',uniq('cuisine'),state.cuisine||'')}${sel('course','Gang/Art',uniq('category_label'),state.course||'')}${sel('protein','Protein',uniq('protein'),state.protein||'')}<select class="fsel" onchange="setF('sort',this.value)"><option value="slot"${sort==='slot'?' selected':''}>↕ Slot</option><option value="kcald"${sort==='kcald'?' selected':''}>kcal ↓</option><option value="kcal"${sort==='kcal'?' selected':''}>kcal ↑</option><option value="time"${sort==='time'?' selected':''}>Zeit ↑</option><option value="title"${sort==='title'?' selected':''}>A–Z</option></select>${active?'<button class="fclear" onclick="clearF()">✕</button>':''}</div></div>
+    <div class="filters">${sel('cuisine','Küche',uniq('cuisine'),state.cuisine||'')}${sel('course','Gang/Art',uniq('category_label'),state.course||'')}${sel('protein','Protein',uniq('protein'),state.protein||'')}<select class="fsel" onchange="setF('sort',this.value)"><option value="slot"${sort==='slot'?' selected':''}>↕ Slot</option><option value="kcald"${sort==='kcald'?' selected':''}>kcal ↓</option><option value="kcal"${sort==='kcal'?' selected':''}>kcal ↑</option><option value="time"${sort==='time'?' selected':''}>Zeit ↑</option><option value="title"${sort==='title'?' selected':''}>A–Z</option><option value="cooked"${sort==='cooked'?' selected':''}>Oft gekocht</option></select>${active?'<button class="fclear" onclick="clearF()">✕</button>':''}</div></div>
     ${heute}<div class="chips">${favChip}${chips}</div>${recentRow}<div class="count">${list.length} Rezepte</div>
     <div class="grid">${list.map(recipeCard).join('')||(state.favOnly?'<div class="empty-big">Noch keine Favoriten — tippe ☆ auf einer Rezeptkarte.</div>':'<div class="empty-big">Nichts gefunden.</div>')}</div>`;
 }
@@ -362,6 +367,7 @@ function viewDetail(){const r=state.recipe; if(!r) return viewRecipes();
     <div class="metar">${r.active_minutes?`<span><b>Aktiv</b> ${r.active_minutes}′</span>`:''}${r.total_minutes?`<span><b>Gesamt</b> ${r.total_minutes}′</span>`:''}${r.difficulty?`<span><b>Niveau</b> ${esc(r.difficulty)}</span>`:''}${r.heat_note?`<span><b>Hitze</b> ${esc(r.heat_note)}</span>`:''}</div>
     <div class="serv"><span>Portionen</span><button onclick="setServ('${r.id}',${Math.max(1,sv-1)})">–</button><b>${sv} ${sv==base?'(Standard)':''}</b><button onclick="setServ('${r.id}',${sv+1})">+</button></div>
     <div class="rate"><span class="rlbl2">Deine Bewertung</span><span class="starrow">${[1,2,3,4,5].map(n=>`<span class="star ${n<=myRating(rid)?'on':''}" onclick="rateRecipe('${rid}',${n})">${n<=myRating(rid)?'★':'☆'}</span>`).join('')}</span></div>
+    <div class="rate"><span class="rlbl2">👨‍🍳 Gekocht${cookCount(rid)?` · <b>${cookCount(rid)}×</b>${lastCook(rid)?' · zuletzt '+lastCook(rid):''}`:''}</span><button class="impbtn" onclick="markCooked()">✓ Heute gekocht</button></div>
     <div class="sec"><div class="lbl">Nährwerte · pro Portion</div><div class="macros">
       <div class="mac"><b>${m.kcal||'–'}</b><span>kcal</span></div><div class="mac"><b>${m.protein||'–'}</b><span>Eiweiß g</span></div><div class="mac"><b>${m.carb||'–'}</b><span>KH g</span></div><div class="mac"><b>${m.fat||'–'}</b><span>Fett g</span></div><div class="mac"><b>${m.fiber||'–'}</b><span>Ballast. g</span></div></div></div>
     <div class="sec"><div class="lbl">Flavor-Balance</div><div class="flav"><div>${spider(fl)}</div><div class="txt">${flText}</div></div></div>
@@ -454,12 +460,12 @@ function viewShopping(){const p=getPlan();const ids=planIds(p);
   const order=Object.keys(AISLE_DE).filter(a=>agg[a]);
   let buyN=0,haveN=0;
   const html=order.map(a=>{const items=Object.keys(agg[a]).sort().map(nm=>{
-    let parts=[],covered=true,anyHave=false;
-    Object.entries(agg[a][nm]).forEach(([u,q])=>{if(!q)return;const have=pantryHave(nm,u);if(have>0)anyHave=true;const buy=q-have;if(buy>1e-9){covered=false;parts.push(fmtQty(buy,u,1));}});
+    let parts=[],covered=true,anyHave=false,brk=[];
+    Object.entries(agg[a][nm]).forEach(([u,q])=>{if(!q)return;const have=pantryHave(nm,u);if(have>0)anyHave=true;const buy=q-have;if(buy>1e-9){covered=false;parts.push(fmtQty(buy,u,1));if(have>0)brk.push('brauche '+fmtQty(q,u,1)+' · habe '+fmtQty(have,u,1));}});
     const k=a+'|'+nm;
     if(covered&&anyHave){haveN++;return `<li class="have"><span class="ck">✓</span><span>${esc(nm)}</span><span class="q hk">im Vorrat</span></li>`;}
     buyN++;const dn=done[k]?'done':'';const qs=parts.join(' + ');
-    return `<li class="${dn}" onclick="toggleShop('${esc(k).replace(/'/g,"\\'")}')"><span class="ck">✓</span><span>${esc(nm)}${anyHave?' <span class="part">tlw. da</span>':''}</span><span class="q">${esc(qs)}</span></li>`;
+    return `<li class="${dn}" onclick="toggleShop('${esc(k).replace(/'/g,"\\'")}')"><span class="ck">✓</span><span class="shn">${esc(nm)}${brk.length?'<div class="shd">'+esc(brk.join(' · '))+' → <b>kauf '+esc(qs)+'</b></div>':''}</span><span class="q">${esc(qs)}</span></li>`;
   }).join('');
     return `<div class="aisle"><h3>${AISLE_DE[a]}</h3><ul class="shl">${items}</ul></div>`;}).join('');
   const sub=P===null?`${ids.length} Gerichte · Vorrat lädt…`:`${ids.length} Gerichte · ${buyN} zu kaufen${haveN?` · ${haveN} im Vorrat ✓`:''}`;
