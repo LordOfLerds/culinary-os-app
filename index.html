@@ -644,7 +644,11 @@ function titleCase(s){return s?s.charAt(0).toUpperCase()+s.slice(1):s;}
 function shoppingBuyList(){var p=getPlan();var agg={};
   Object.keys(p).forEach(function(d){var di=+d;var ds=p[d];if(!ds)return;Object.keys(ds).forEach(function(m){var id=ds[m];if(!id)return;var r=byId(id);if(!r)return;
     (r.components||[]).forEach(function(c){(c.ingredients||[]).forEach(function(i){var key=cleanCore(i.name)||(i.name||'').toLowerCase();if(!key)return;var e=agg[key]=agg[key]||{name:titleCase(key),u:{},aisle:i.aisle||guessAisle(i.name),days:{}};var u=i.unit||'';e.u[u]=(e.u[u]||0)+(+i.qty||0);if(!isNaN(di))e.days[di]=1;});});});});
-  var out=[];Object.keys(agg).forEach(function(k){var e=agg[k];Object.keys(e.u).forEach(function(u){var q=e.u[u];if(!q)return;var have=pantryHave(e.name,u);var rest=Math.max(0,q-have);if(rest>1e-9)out.push({name:e.name,qty:Math.round(rest*100)/100,unit:u,aisle:e.aisle,days:Object.keys(e.days).map(Number).sort(function(a,b){return a-b;})});});});
+  var out=[];Object.keys(agg).forEach(function(k){var e=agg[k];
+    var parts=[],primary=null,pq=-1;
+    Object.keys(e.u).forEach(function(u){var q=e.u[u];if(!q)return;var have=pantryHave(e.name,u);var rest=Math.max(0,q-have);if(rest>1e-9){var pp={qty:Math.round(rest*100)/100,unit:u};parts.push(pp);if(rest>pq){pq=rest;primary=pp;}}});
+    if(!parts.length||!primary)return;
+    out.push({name:e.name,qty:primary.qty,unit:primary.unit,parts:parts,aisle:e.aisle,days:Object.keys(e.days).map(Number).sort(function(a,b){return a-b;})});});  // 1 Zeile/Zutat (keine Einheiten-Dubletten)
   return out;}
 function scoreCand(c){var s=0,prefs=PREFS||{};var pins=prefs.pins||[];if(pins.some(function(p){return p&&(c.name||'').toLowerCase().indexOf(p.toLowerCase())>=0;}))s+=10;if(c.bio&&(prefs.bio_level||'near')!=='off')s+=2;return s;}
 var SIM_OK=0.55; // ab hier gilt ein Treffer als sicher
@@ -692,14 +696,16 @@ function billaUrl(c){return c&&c.url?('https://shop.billa.at/produkte/'+c.url):(
 function packsFor(it){return Math.max(1,(+it.packs||1));}
 function lineTotal(it,ch){return ch?(+ch.price||0)*packsFor(it):0;}
 function picHtml(ch,pk){var img=ch&&ch.image?'<img src="'+esc(ch.image)+'" loading="lazy" onerror="this.style.display=\'none\'">':'';var fb=ch&&ch.bio?'🌿':'🛒';var badge=pk>1?'<span class="pkb">'+pk+'×</span>':'';return '<div class="pic">'+fb+img+badge+'</div>';}
-function cartItemCard(it,idx,store){var ch=chosenFor(it);var need=esc(fmtQty(it.qty,it.unit||'',1));
+function needText(it,meta){var parts=(meta&&meta.parts&&meta.parts.length)?meta.parts:[{qty:it.qty,unit:it.unit}];return parts.map(function(p){return esc(fmtQty(p.qty,p.unit||'',1));}).join(' + ');}
+function goodSize(s){return s&&/[a-z]/i.test(s)?s:'';}  // "1" ohne Einheit ausblenden
+function cartItemCard(it,idx,store,meta){var ch=chosenFor(it);var need=needText(it,meta);
   if(!ch)return '<div class="cit miss"><div class="pic">🔎</div><div class="mid"><div class="ing">'+esc(it.ing)+' <span class="need">'+need+'</span></div><div class="prod">kein passendes Produkt</div></div><div class="right"><div class="cacts"><span class="cact" onclick="cartSwap('+idx+')" title="suchen">🔎</span></div></div></div>';
   var pk=packsFor(it);
   var ob=otherStoreBest(it,store);var hint='';if(ob&&ob.price<ch.price&&ch.unit_price!=null&&ob.unit_price!=null&&ob.unit_price<ch.unit_price){hint='<span class="oth">'+esc((ob.store||'').toUpperCase())+' −'+(ch.price-ob.price).toFixed(2)+'€</span>';}
   var pinned=(PREFS.pins||[]).some(function(p){return p&&ch.name.toLowerCase().indexOf(p.toLowerCase())>=0;});
   var unsure=ch.sim!=null&&ch.sim<SIM_OK&&!(CART&&CART.ai);
   var badges='';if(ch.bio)badges+=' <span class="bbio">BIO</span>';if(pinned)badges+=' <span class="bpin">📌</span>';if(unsure)badges+=' <span class="bwarn">⚠ prüfen</span>';
-  var meta=[];if(ch.sizeLabel)meta.push('<span class="psz">'+esc(ch.sizeLabel)+'</span>');if(ch.unit_price!=null)meta.push(ch.unit_price.toFixed(2)+' €/'+esc(ch.unit_base||''));if(hint)meta.push(hint);
+  var sz=goodSize(ch.sizeLabel);var meta=[];if(sz)meta.push('<span class="psz">'+esc(sz)+'</span>');if(ch.unit_price!=null)meta.push(ch.unit_price.toFixed(2)+' €/'+esc(ch.unit_base||''));if(hint)meta.push(hint);
   var lt=lineTotal(it,ch);
   return '<div class="cit">'+picHtml(ch,pk)+'<div class="mid"><div class="ing">'+esc(it.ing)+' <span class="need">'+need+'</span></div><div class="prod"><a class="prodlnk" href="'+billaUrl(ch)+'" target="_blank" rel="noopener">'+esc(ch.name)+'</a>'+badges+'</div><div class="cmeta">'+meta.join(' · ')+'</div></div><div class="right"><div class="cpr">'+lt.toFixed(2)+' €'+(pk>1?'<span class="ppk">'+pk+'× '+(+ch.price).toFixed(2)+'</span>':'')+'</div><div class="cacts"><span class="cact" onclick="cartPin('+idx+')" title="Marke merken">📌</span><span class="cact" onclick="cartSwap('+idx+')" title="tauschen">↔</span></div></div></div>';}
 function cartBodyHtml(){var raw=CART.raw||[];var store=(PREFS&&PREFS.staple_store)||'billa';var q=(cartQ||'').toLowerCase().trim();
@@ -709,11 +715,11 @@ function cartBodyHtml(){var raw=CART.raw||[];var store=(PREFS&&PREFS.staple_stor
   var html='';
   if(cartGroup==='tag'){
     DAYS.forEach(function(dn,di){var inD=rows.filter(function(o){return (o.meta.days||[]).indexOf(di)>=0;});if(!inD.length)return;
-      html+='<div class="psec"><div class="pgh">'+esc(dn)+'</div>'+inD.map(function(o){return cartItemCard(o.it,o.idx,store);}).join('')+'</div>';});
-    var nd=rows.filter(function(o){return !(o.meta.days||[]).length;});if(nd.length)html+='<div class="psec"><div class="pgh">Sonstige</div>'+nd.map(function(o){return cartItemCard(o.it,o.idx,store);}).join('')+'</div>';
+      html+='<div class="psec"><div class="pgh">'+esc(dn)+'</div>'+inD.map(function(o){return cartItemCard(o.it,o.idx,store,o.meta);}).join('')+'</div>';});
+    var nd=rows.filter(function(o){return !(o.meta.days||[]).length;});if(nd.length)html+='<div class="psec"><div class="pgh">Sonstige</div>'+nd.map(function(o){return cartItemCard(o.it,o.idx,store,o.meta);}).join('')+'</div>';
   }else{
     Object.keys(AISLE_DE).forEach(function(a){var inA=rows.filter(function(o){return (o.meta.aisle||'snacks_sonstiges')===a;});if(!inA.length)return;
-      html+='<div class="psec"><div class="pgh">'+esc(AISLE_DE[a])+'</div>'+inA.map(function(o){return cartItemCard(o.it,o.idx,store);}).join('')+'</div>';});
+      html+='<div class="psec"><div class="pgh">'+esc(AISLE_DE[a])+'</div>'+inA.map(function(o){return cartItemCard(o.it,o.idx,store,o.meta);}).join('')+'</div>';});
   }
   return html||'<div class="empty-big">Keine Treffer'+(q?' für „'+esc(cartQ)+'"':'')+'.</div>';}
 function viewCart(){
