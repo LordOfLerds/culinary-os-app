@@ -588,24 +588,26 @@ function pantryHave(name,unit){if(!P||!P.length)return 0;var bl=(name||'').toLow
 function viewShopping(){const p=getPlan();const ids=planIds(p);
   if(!ids.length) return `<div class="topbar"><h1>Einkaufsliste</h1></div><div class="empty-big">Noch nichts geplant.<br>Füge Gerichte über „＋ Zum Plan" hinzu — die Zutaten landen automatisch hier, nach Kategorie sortiert.</div>`;
   if(P===null)loadPantry();
-  const agg={}; // aisle -> ingKey -> {name(display), u:{unit:qty}, rec:{notionId:title}}
+  const agg={}; // ingKey -> {name(display), aisle, u:{unit:qty}, rec:{notionId:title}}  — global, 1 Eintrag/Zutat
   ids.forEach(id=>{const r=byId(id);if(!r)return;r.components.forEach(c=>c.ingredients.forEach(i=>{
-    const a=i.aisle||guessAisle(i.name);const key=ingKey(i.name)||(i.name||'').toLowerCase().trim();const disp=titleCase(cleanCore(i.name)||(i.name||'').trim());agg[a]=agg[a]||{};
-    const e=agg[a][key]=agg[a][key]||{name:disp,u:{},rec:{}};
-    if(disp&&disp.length>e.name.length&&/[äöü]/i.test(e.name)===false&&/[äöü]/i.test(disp))e.name=disp; // hübschere Variante mit Umlaut bevorzugen
+    const key=ingKey(i.name)||(i.name||'').toLowerCase().trim();if(!key)return;const disp=titleCase(cleanCore(i.name)||(i.name||'').trim());
+    const e=agg[key]=agg[key]||{name:disp,aisle:(i.aisle||guessAisle(cleanCore(i.name)||i.name)),u:{},rec:{}};
+    if(disp&&/[äöü]/i.test(disp)&&!/[äöü]/i.test(e.name))e.name=disp; // Umlaut-Variante bevorzugen
+    if(i.aisle)e.aisle=i.aisle; // explizite Warengruppe aus Rezeptdaten gewinnt
     const u=i.unit||'';e.u[u]=(e.u[u]||0)+(+i.qty||0);e.rec[id]=r.title;
   }));});
   const done=store.get('shop_done',{});
-  const order=Object.keys(AISLE_DE).filter(a=>agg[a]);
+  const byA={};Object.keys(agg).forEach(function(k){var e=agg[k];var a=e.aisle||'snacks_sonstiges';(byA[a]=byA[a]||[]).push(e);});
+  const order=Object.keys(AISLE_DE).filter(a=>byA[a]&&byA[a].length);
   let buyN=0,haveN=0;
-  const html=order.map(a=>{const items=Object.keys(agg[a]).sort(function(x,y){return agg[a][x].name.localeCompare(agg[a][y].name);}).map(nm=>{
-    const e=agg[a][nm];let covered=true,anyHave=false,buyParts=[],lines='';
+  const html=order.map(a=>{const items=byA[a].sort(function(x,y){return x.name.localeCompare(y.name);}).map(function(e){
+    let covered=true,anyHave=false,buyParts=[],lines='';
     Object.keys(e.u).forEach(function(u){var q=e.u[u];if(!q)return;var have=pantryHave(e.name,u);if(have>0)anyHave=true;var rest=Math.max(0,q-have);if(rest>1e-9){covered=false;buyParts.push(fmtQty(rest,u,1));}
       lines+='<div class="shl3"><span>In Speisekammer</span><b>'+esc(fmtQty(have,u,1))+'</b></div>'
             +'<div class="shl3"><span>Benötigt insgesamt</span><b>'+esc(fmtQty(q,u,1))+'</b></div>'
             +'<div class="shl3"><span>Rest</span><b class="'+(rest>1e-9?'restbuy':'restok')+'">'+(rest>1e-9?esc(fmtQty(rest,u,1)):'✓ gedeckt')+'</b></div>';});
     var recLinks=Object.keys(e.rec).map(function(rid){return '<span class="shreclink" onclick="event.stopPropagation();openRecipe(\''+rid+'\')">'+esc(e.rec[rid])+'</span>';}).join(' · ');
-    var k=a+'|'+nm;var inV=covered&&anyHave;
+    var k=a+'|'+e.name;var inV=covered&&anyHave;
     if(inV)haveN++;else buyN++;
     var dn=(!inV&&done[k])?' done':'';
     var click=inV?'':' onclick="toggleShop(\''+esc(k).replace(/'/g,"\\'")+'\')"';
