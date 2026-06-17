@@ -140,6 +140,19 @@ a{color:inherit}
 .addslot{margin-top:9px;width:100%;background:var(--soft);border:1px dashed var(--line);color:var(--acc);border-radius:10px;padding:9px;font-size:13px;font-weight:600;cursor:pointer}
 .planbar{margin:12px 14px 0;display:flex;gap:8px}
 .planbar .btn{flex:1}
+.prow.eslot{cursor:pointer}
+.prow .addh{color:var(--mut2);font-weight:500}
+.prow .chev{flex:0 0 auto;color:var(--mut2);font-size:16px;padding:0 2px}
+.prow.filled .slotb{background:var(--tealbg);color:var(--teal);border-color:transparent}
+.spsearch{padding:10px 14px;border-bottom:1px solid var(--line)}
+.spsearch input{width:100%;padding:11px 13px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);font-size:15px}
+.spc{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px 13px;cursor:pointer}
+.spc:active{transform:scale(.99)}
+.spt{font-size:15px;font-weight:600;color:var(--ink)}
+.spm{font-size:12px;color:var(--mut2);margin-top:3px}
+.sptag{color:var(--acc);font-weight:600}
+.spgrp{font-size:11.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--mut2);margin:6px 2px 0}
+.spc.sprand{text-align:center;font-weight:700;color:var(--acc);background:var(--soft);border-style:dashed}
 .rate{display:flex;align-items:center;justify-content:space-between;margin:2px 16px 6px;padding:8px 0}
 .rate .rlbl2{font-size:13px;color:var(--mut);font-weight:600}
 .starrow .star{font-size:25px;cursor:pointer;padding:0 2px;color:var(--mut2)}
@@ -413,6 +426,7 @@ function openRecipe(id){state.recipe=byId(id);pushRecent(id);state.view='detail'
 /* ---------- PLAN (Slot-Planer wie Notion) ---------- */
 const SLOT_ORDER=['Beef','Chicken-1','Chicken-2','Fish','Veg-Mi','Veg-So','Cheat','Flex'];
 const SLOT_EMO={'Beef':'🥩','Chicken-1':'🍗','Chicken-2':'🍗','Fish':'🐟','Veg-Mi':'🥗','Veg-So':'🥦','Cheat':'🍔','Flex':'✨'};
+const DAY_SLOTS=['Beef','Chicken-1','Fish','Veg-Mi','Chicken-2','Cheat','Veg-So']; // vorbelegte Wochen-Rotation (Mo–So), wie in Notion
 function getPlan(){var p=store.get('plan',{});var ch=false;
   Object.keys(p).forEach(function(d){var v=p[d];if(Array.isArray(v)){var o={};v.forEach(function(id){var r=byId(id);var s=(r&&r.slot)||'Flex';if(!o[s])o[s]=id;});p[d]=o;ch=true;}});
   if(ch)store.set('plan',p);return p;}
@@ -420,21 +434,44 @@ function planIds(p){p=p||getPlan();var o=[];Object.keys(p).forEach(function(d){v
 function dayKcal(ds){if(!ds)return 0;return Object.keys(ds).reduce(function(a,s){var r=byId(ds[s]);return a+((r&&r.macros_per_serving&&r.macros_per_serving.kcal)||0);},0);}
 function addToPlan(id){var r=byId(id);var slot=(r&&r.slot&&SLOT_ORDER.indexOf(r.slot)>=0)?r.slot:'Flex';
   openModal('An welchen Tag?',DAYS.map(function(d,i){return {label:d,fn:function(){assignSlot(i,slot,id);toast(r.title+' → '+d+' · '+slot);}};}));}
-function pickDay(day){openModal(DAYS[day]+' · Slot wählen',SLOT_ORDER.map(function(s){var p=getPlan();var taken=p[day]&&p[day][s]?byId(p[day][s]):null;
-  return {label:(SLOT_EMO[s]||'')+' '+s+(taken?' · '+taken.title:''),fn:function(){pickSlot(day,s);}};}));}
-function pickSlot(day,slot){var cands=R.filter(function(r){return r.slot===slot;});if(!cands.length)cands=R.slice();
-  cands.sort(function(a,b){return a.title.localeCompare(b.title);});
-  var opts=[{label:'🎲 Zufallsvorschlag',fn:function(){assignSlot(day,slot,cands[Math.floor(Math.random()*cands.length)].id);}}];
-  cands.forEach(function(r){opts.push({label:r.title+' · '+((r.macros_per_serving&&r.macros_per_serving.kcal)||'?')+' kcal',fn:function(){assignSlot(day,slot,r.id);}});});
-  openModal(DAYS[day]+' · '+(SLOT_EMO[slot]||'')+' '+slot,opts);}
-function assignSlot(day,slot,id){var p=getPlan();p[day]=p[day]||{};p[day][slot]=id;store.set('plan',p);closeModal();render();}
+function addSlotToDay(i){var cur=Object.keys(getPlan()[i]||{});var avail=SLOT_ORDER.filter(function(s){return s!==DAY_SLOTS[i]&&cur.indexOf(s)<0;});
+  if(!avail.length){toast('Alle Slots schon belegt');return;}
+  openModal('Weiterer Slot · '+DAYS[i],avail.map(function(s){return {label:(SLOT_EMO[s]||'')+' '+s,fn:function(){closeModal();openSlotPicker(i,s);}};}));}
+function planScore(r){var sc=getFav()[r.id]?10:0;var soonN=(P||[]).filter(function(it){return it.days!==null&&it.days<=6;}).map(function(it){return (it.name||'').toLowerCase();}).filter(function(n){return n.length>=4;});
+  if(soonN.length){var ing=[];(r.components||[]).forEach(function(c){(c.ingredients||[]).forEach(function(i){ing.push((i.name||'').toLowerCase());});});soonN.forEach(function(n){if(ing.some(function(x){return x.indexOf(n)>=0||(x.length>=4&&n.indexOf(x)>=0);}))sc+=3;});}
+  return sc;}
+let slotPick=null;
+function openSlotPicker(day,slot){slotPick={day:day,slot:slot,q:''};renderSlotPicker();}
+function closeSlotPicker(){slotPick=null;var e=document.getElementById('spEl');if(e)e.remove();}
+function slotPickInput(v){if(slotPick){slotPick.q=v;renderSlotPickerBody();}}
+function renderSlotPicker(){var ex=document.getElementById('spEl');if(ex)ex.remove();if(!slotPick)return;var s=slotPick;
+  var el=document.createElement('div');el.className='chatov';el.id='spEl';
+  el.innerHTML='<div class="chathead"><b>'+(SLOT_EMO[s.slot]||'')+' '+esc(s.slot)+' · '+esc(DAYS[s.day])+'</b><span class="close" onclick="closeSlotPicker()">Abbrechen ✕</span></div>'
+   +'<div class="spsearch"><input id="spInput" placeholder="🔎 Rezept, Küche oder Protein suchen…" oninput="slotPickInput(this.value)" autocomplete="off"></div>'
+   +'<div class="chatbody" id="spBody"></div>';
+  document.body.appendChild(el);renderSlotPickerBody();var inp=document.getElementById('spInput');if(inp)inp.focus();}
+function renderSlotPickerBody(){var b=document.getElementById('spBody');if(!b||!slotPick)return;var s=slotPick;var q=(s.q||'').toLowerCase().trim();
+  var all=R.slice();
+  if(q)all=all.filter(function(r){return (r.title||'').toLowerCase().indexOf(q)>=0||((r.cuisine||[]).join(' ')).toLowerCase().indexOf(q)>=0||((r.protein||'').toLowerCase().indexOf(q)>=0||((r.category_label||'').toLowerCase().indexOf(q)>=0));});
+  var match=all.filter(function(r){return r.slot===s.slot;}),other=all.filter(function(r){return r.slot!==s.slot;});
+  function srt(a,b){return planScore(b)-planScore(a)||(a.title||'').localeCompare(b.title||'');}
+  match.sort(srt);other.sort(srt);
+  function card(r){var fav=getFav()[r.id];var meta=[];if(r.macros_per_serving&&r.macros_per_serving.kcal)meta.push(r.macros_per_serving.kcal+' kcal');if(r.total_minutes)meta.push(r.total_minutes+' min');if(r.protein)meta.push(esc(r.protein));if(r.cuisine&&r.cuisine.length)meta.push(esc(r.cuisine[0]));
+    var tags=[];if(fav)tags.push('★ Favorit');if(!fav&&planScore(r)>=3)tags.push('nutzt Vorrat');
+    return '<div class="spc" onclick="assignSlot('+s.day+',\''+esc(s.slot)+'\',\''+r.id+'\')"><div class="spt">'+esc(r.title)+'</div><div class="spm">'+meta.join(' · ')+(tags.length?' <span class="sptag">'+tags.join(' · ')+'</span>':'')+'</div></div>';}
+  var h='<div class="spc sprand" onclick="pickRandom()">🎲 Überrasch mich ('+esc(s.slot)+')</div>';
+  if(match.length)h+='<div class="spgrp">Passend zu '+(SLOT_EMO[s.slot]||'')+' '+esc(s.slot)+' · '+match.length+'</div>'+match.map(card).join('');
+  h+='<div class="spgrp">'+(match.length?'Andere Slots':'Alle Rezepte')+' · '+other.length+'</div>'+(other.length?other.map(card).join(''):'<div class="chathint">Keine Treffer'+(q?' für „'+esc(s.q)+'"':'')+'.</div>');
+  b.innerHTML=h;}
+function pickRandom(){if(!slotPick)return;var s=slotPick;var c=R.filter(function(r){return r.slot===s.slot;});if(!c.length)c=R.slice();if(!c.length)return;var mx=Math.max.apply(null,c.map(planScore));var top=c.filter(function(x){return planScore(x)===mx;});assignSlot(s.day,s.slot,top[Math.floor(Math.random()*top.length)].id);}
+function assignSlot(day,slot,id){var p=getPlan();p[day]=p[day]||{};p[day][slot]=id;store.set('plan',p);closeModal();closeSlotPicker();render();}
 function rmPlan(day,slot){var p=getPlan();if(p[day]){delete p[day][slot];if(!Object.keys(p[day]).length)delete p[day];}store.set('plan',p);render();}
-function suggestWeek(){if(!confirm('Leere Tage mit je 1 Vorschlag füllen?'))return;var p=getPlan();
-  DAYS.forEach(function(d,i){if(p[i]&&Object.keys(p[i]).length)return;var slot=SLOT_ORDER[Math.floor(Math.random()*6)];var c=R.filter(function(r){return r.slot===slot;});if(c.length){p[i]=p[i]||{};p[i][slot]=c[Math.floor(Math.random()*c.length)].id;}});
+function suggestWeek(){if(!confirm('Leere Standard-Slots mit je 1 Vorschlag füllen? (Favoriten & bald Ablaufendes bevorzugt)'))return;var p=getPlan();
+  DAYS.forEach(function(d,i){var slot=DAY_SLOTS[i];if(p[i]&&p[i][slot])return;var c=R.filter(function(r){return r.slot===slot;});if(!c.length)c=R.slice();if(c.length){var mx=Math.max.apply(null,c.map(planScore));var top=c.filter(function(x){return planScore(x)===mx;});p[i]=p[i]||{};p[i][slot]=top[Math.floor(Math.random()*top.length)].id;}});
   store.set('plan',p);render();}
 function autoPlanWeek(){
   if(!confirm('Ganze Woche automatisch planen? Überschreibt den aktuellen Plan.'))return;
-  var rot=['Beef','Chicken-1','Fish','Veg-Mi','Chicken-2','Cheat','Veg-So'];
+  var rot=DAY_SLOTS;
   var fav=getFav();
   var soonN=(P||[]).filter(function(it){return it.days!==null&&it.days<=6;}).map(function(it){return (it.name||'').toLowerCase();}).filter(function(n){return n.length>=4;});
   function score(r){var s=fav[r.id]?10:0;var ing=[];(r.components||[]).forEach(function(c){(c.ingredients||[]).forEach(function(i){ing.push((i.name||'').toLowerCase());});});soonN.forEach(function(n){if(ing.some(function(x){return x.indexOf(n)>=0||(x.length>=4&&n.indexOf(x)>=0);}))s+=3;});return s;}
@@ -449,15 +486,16 @@ function autoPlanWeek(){
     used[pick.id]=1;plan[day]={};plan[day][slot]=pick.id;
   });
   store.set('plan',plan);render();}
-function viewPlan(){var p=getPlan();if(EATERS===null)loadEaters();var g=goalKcal();
+function viewPlan(){var p=getPlan();if(EATERS===null)loadEaters();if(P===null)loadPantry();var g=goalKcal();
+  var filled=0;
   var days=DAYS.map(function(d,i){var ds=p[i]||{};
-    var rows=SLOT_ORDER.filter(function(s){return ds[s];}).map(function(s){var r=byId(ds[s]);if(!r)return'';
-      return '<div class="prow"><span class="slotb">'+(SLOT_EMO[s]||'')+' '+esc(s)+'</span><span class="t" onclick="openRecipe(\''+r.id+'\')">'+esc(r.title)+'<div class="k">'+((r.macros_per_serving&&r.macros_per_serving.kcal)||'?')+' kcal</div></span><span class="x" onclick="rmPlan('+i+',\''+esc(s)+'\')">×</span></div>';}).join('');
-    var kc=dayKcal(ds);
-    var dkc=(kc&&g)?(kc<=g*1.08?' dkok':' dkover'):'';
-    return '<div class="day"><h3>'+d+(kc?'<span class="dk'+dkc+'">'+kc+(g?' / '+g:'')+' kcal</span>':'')+'</h3>'+(rows||'<div class="empty">— noch nichts geplant —</div>')+'<button class="addslot" onclick="pickDay('+i+')">＋ Gericht in Slot</button></div>';}).join('');
-  var total=planIds(p).length;
-  return '<div class="topbar"><h1>Wochenplan</h1><div class="sub">'+total+' Gerichte'+(g?' · Ziel '+g+' kcal/Tag':'')+' · Slots wie in Notion</div></div><div class="planbar"><button class="btn btn-p" onclick="autoPlanWeek()">✨ Auto-Woche</button><button class="btn btn-s" onclick="suggestWeek()">🎲 Leere füllen</button></div>'+days+'<div style="height:20px"></div>';
+    var slots=[DAY_SLOTS[i]];Object.keys(ds).forEach(function(s){if(slots.indexOf(s)<0)slots.push(s);});
+    var rows=slots.map(function(s){var r=ds[s]?byId(ds[s]):null;var emo=SLOT_EMO[s]||'';
+      if(r){filled++;return '<div class="prow filled"><span class="slotb">'+emo+' '+esc(s)+'</span><span class="t" onclick="openRecipe(\''+r.id+'\')">'+esc(r.title)+'<div class="k">'+((r.macros_per_serving&&r.macros_per_serving.kcal)||'?')+' kcal'+(r.total_minutes?' · '+r.total_minutes+' min':'')+'</div></span><span class="x" onclick="rmPlan('+i+',\''+esc(s)+'\')">×</span></div>';}
+      return '<div class="prow eslot" onclick="openSlotPicker('+i+',\''+esc(s)+'\')"><span class="slotb">'+emo+' '+esc(s)+'</span><span class="t addh">＋ Gericht wählen</span><span class="chev">›</span></div>';}).join('');
+    var kc=dayKcal(ds);var dkc=(kc&&g)?(kc<=g*1.08?' dkok':' dkover'):'';
+    return '<div class="day"><h3>'+d+(kc?'<span class="dk'+dkc+'">'+kc+(g?' / '+g:'')+' kcal</span>':'')+'</h3>'+rows+'<button class="addslot" onclick="addSlotToDay('+i+')">＋ weiterer Slot</button></div>';}).join('');
+  return '<div class="topbar"><h1>Wochenplan</h1><div class="sub">'+filled+' von 7 Tagen belegt'+(g?' · Ziel '+g+' kcal/Tag':'')+' · Slots wie in Notion</div></div><div class="planbar"><button class="btn btn-p" onclick="autoPlanWeek()">✨ Auto-Woche</button><button class="btn btn-s" onclick="suggestWeek()">🎲 Leere füllen</button></div>'+days+'<div style="height:20px"></div>';
 }
 
 /* ---------- SHOPPING ---------- */
