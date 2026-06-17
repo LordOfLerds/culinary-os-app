@@ -127,6 +127,10 @@ a{color:inherit}
 .mct{font-family:Georgia,serif;font-size:17.5px}
 .mcs{font-family:Georgia,serif;font-style:italic;font-size:13.5px;color:var(--mut);margin-top:2px}
 .mcx{color:#b23;cursor:pointer;font-size:15px;margin-left:8px}
+.subrow{display:flex;gap:10px;padding:7px 0;border-top:1px solid var(--soft);font-size:13.5px}
+.subrow:first-of-type{border-top:none}
+.subn{flex:0 0 38%;font-weight:600;min-width:0}
+.suba{flex:1;color:var(--mut)}
 /* shopping */
 .aisle{margin:14px 14px 0}
 .aisle h3{font-size:13px;color:var(--acc);text-transform:capitalize;margin-bottom:6px}
@@ -283,9 +287,25 @@ function setF(k,v){state[k]=v;render();}
 function clearF(){state.cuisine='';state.course='';state.protein='';render();}
 function setSlot(s){state.slot=s;render();}
 
+const SUBS={
+ 'butter':['Margarine','Öl (¾ Menge)','Kokosöl'],'sahne':['Crème fraîche','Kochsahne','Cashew-Sahne'],
+ 'crème fraîche':['Schmand','saure Sahne','griech. Joghurt'],'schmand':['Crème fraîche','saure Sahne'],
+ 'milch':['Hafermilch','Mandelmilch','Sojamilch'],'zucker':['Honig (¾)','Ahornsirup','Erythrit'],
+ 'mehl':['Dinkelmehl','glutenfreie Mehlmischung'],'eier':['Apfelmus (¼ Tasse/Ei)','Leinsamen-Gel (1 EL + 3 EL Wasser)'],
+ 'knoblauch':['Knoblauchpulver (⅛ TL/Zehe)','Bärlauch'],'schalotte':['milde Zwiebel','Frühlingszwiebel'],
+ 'zwiebel':['Schalotte','Lauch','Frühlingszwiebel'],'parmesan':['Grana Padano','Pecorino','Bergkäse'],
+ 'buttermilch':['Milch + 1 EL Zitronensaft','Joghurt + Wasser'],'weißwein':['Brühe + Spritzer Essig (alkoholfrei)','Traubensaft + Essig'],
+ 'rotwein':['dunkle Brühe + 1 TL Balsamico (alkoholfrei)'],'reis':['Quinoa','Bulgur','Blumenkohlreis'],
+ 'frische kräuter':['getrocknete (⅓ Menge)'],'limette':['Zitrone','Verjus'],'zitrone':['Limette','Verjus'],
+ 'honig':['Ahornsirup','Agavendicksaft'],'sojasauce':['Tamari (glutenfrei)','Maggi + Salz'],
+ 'frischkäse':['Quark','Ricotta'],'ricotta':['Quark','Hüttenkäse (passiert)'],'mascarpone':['Frischkäse + Sahne'],
+ 'kreuzkümmel':['Kümmel (mild)','Garam Masala'],'tomatenmark':['passierte Tomaten (eingekocht)']
+};
+function subsFor(r){var seen={},out=[];(r.components||[]).forEach(function(c){(c.ingredients||[]).forEach(function(i){var nm=(i.name||'').toLowerCase();Object.keys(SUBS).forEach(function(k){if(nm.indexOf(k)>=0&&!seen[k]){seen[k]=1;out.push({name:i.name,alts:SUBS[k]});}});});});return out;}
 function viewDetail(){const r=state.recipe; if(!r) return viewRecipes();
   if(RATE===null)loadRatings();
   const rid=r.rid||r.id;
+  const _subs=subsFor(r);const subsHtml=_subs.length?('<div class="sec"><div class="lbl">Substitutionen</div>'+_subs.map(function(x){return '<div class="subrow"><span class="subn">'+esc(x.name)+'</span><span class="suba">'+x.alts.map(esc).join(' · ')+'</span></div>';}).join('')+'</div>'):'';
   const base=r.base_servings||2; const sv=state.servings[r.id]||base; const sc=sv/base;
   const m=r.macros_per_serving||{}; const fl=r.flavor||{};
   let pr=(r.pairing||'').trim(), pb='';
@@ -308,6 +328,7 @@ function viewDetail(){const r=state.recipe; if(!r) return viewRecipes();
     <div class="sec"><div class="lbl">Flavor-Balance</div><div class="flav"><div>${spider(fl)}</div><div class="txt">${flText}</div></div></div>
     <div class="btnrow"><button class="btn btn-p" onclick="openCook('${r.id}')">👨‍🍳 Koch-Modus</button><button class="btn btn-s" onclick="addToPlan('${r.id}')">＋ Zum Plan</button></div>
     ${comps}
+    ${subsHtml}
     <div class="sec"><div class="lbl">Pairing & Equipment</div><div>${pb}<span style="font-size:14px">${esc(pr)}</span></div>${(r.equipment||[]).length?`<div style="margin-top:10px;font-size:13px;color:var(--mut)">🍴 ${r.equipment.map(esc).join(' · ')}</div>`:''}</div>
   </div>`;
 }
