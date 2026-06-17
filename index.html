@@ -53,6 +53,12 @@ a{color:inherit}
 .recent .rcard{flex:0 0 auto;width:134px;background:var(--card);border:1px solid var(--line);border-radius:11px;padding:9px 10px;cursor:pointer}
 .recent .rcs{font-size:9.5px;color:var(--acc);font-weight:700;text-transform:uppercase;letter-spacing:.08em}
 .recent .rct{font-size:12.5px;font-weight:600;margin-top:3px;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.heute{margin:10px 14px 0;background:linear-gradient(180deg,var(--soft),var(--card));border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.heute .hl{font-size:13px;font-weight:700;color:var(--acc);margin-bottom:6px}
+.heute .hsug{padding:8px 0;border-top:1px solid var(--soft);cursor:pointer}
+.heute .hsug:first-of-type{border-top:none}
+.heute .hst{font-weight:600;font-size:14.5px}
+.heute .hsr{font-size:11.5px;color:var(--mut2);margin-top:1px}
 .pill{font-size:10.5px;padding:3px 8px;border-radius:999px;background:var(--soft);color:var(--mut)}
 /* detail */
 .sheet{padding:0 0 30px}
@@ -252,6 +258,14 @@ function toggleFav(id,ev){if(ev)ev.stopPropagation();var f=getFav();if(f[id])del
 function getRecent(){return store.get('recent',[]);}
 function pushRecent(id){var a=getRecent().filter(function(x){return x!==id;});a.unshift(id);if(a.length>10)a=a.slice(0,10);store.set('recent',a);}
 function toggleFavOnly(){state.favOnly=!state.favOnly;render();}
+function dinnerSuggestions(){var fav=getFav(),recent=getRecent(),out=[],used={};
+  function add(r,reason){if(r&&!used[r.id]){used[r.id]=1;out.push({r:r,reason:reason});}}
+  if(typeof P!=='undefined'&&P&&P.length){var soon=P.filter(function(it){return it.days!=null&&it.days<=6;});
+    if(soon.length){recipesUsing(soon).forEach(function(s){if(out.length<3)add(s.r,'nutzt '+soon[0].name+' (läuft bald ab)');});}}
+  Object.keys(fav).forEach(function(id){if(out.length<3){var r=byId(id);if(r&&recent.indexOf(id)<0)add(r,'dein Favorit ★');}});
+  var pool=R.filter(function(r){return recent.indexOf(r.id)<0;}),i=0;
+  while(out.length<3&&pool.length){add(pool[Math.floor(Math.random()*pool.length)],'neue Idee');if(++i>60)break;}
+  return out.slice(0,3);}
 function recipeCard(r){const m=r.macros_per_serving||{};const fv=isFav(r.id);
   return `<div class="rc" onclick="openRecipe('${r.id}')">
     <span class="fav ${fv?'on':''}" onclick="toggleFav('${r.id}',event)">${fv?'★':'☆'}</span>
@@ -276,13 +290,16 @@ function viewRecipes(){
   const kc=r=>num(r.macros_per_serving&&r.macros_per_serving.kcal);
   list=list.slice().sort((a,b)=> sort==='kcald'?kc(b)-kc(a) : sort==='kcal'?kc(a)-kc(b) : sort==='time'?num(a.total_minutes)-num(b.total_minutes) : sort==='title'?(a.title||'').localeCompare(b.title||'') : ((a.slot||'').localeCompare(b.slot||'')||(a.title||'').localeCompare(b.title||'')));
   const active=state.cuisine||state.course||state.protein;
+  if(P===null)loadPantry();
+  const sugg=(!q&&!active&&!state.favOnly)?dinnerSuggestions():[];
+  const heute=sugg.length?('<div class="heute"><div class="hl">🍽 Heute kochen?</div>'+sugg.map(function(s){return '<div class="hsug" onclick="openRecipe(\''+s.r.id+'\')"><div class="hst">'+esc(s.r.title)+'</div><div class="hsr">'+esc(s.reason)+'</div></div>';}).join('')+'</div>'):'';
   const favChip='<div class="chip'+(state.favOnly?' on':'')+'" onclick="toggleFavOnly()">★ Favoriten</div>';
   const recent=getRecent().map(byId).filter(Boolean);
   const recentRow=(!q&&!active&&!state.favOnly&&recent.length>1)?'<div class="recent"><div class="rlbl">Zuletzt angesehen</div><div class="rrow">'+recent.slice(0,8).map(function(r){return '<div class="rcard" onclick="openRecipe(\''+r.id+'\')"><div class="rcs">'+esc(r.slot||'')+'</div><div class="rct">'+esc(r.title)+'</div></div>';}).join('')+'</div></div>':'';
   return `<div class="topbar"><h1>🍳 Culinary OS</h1><div class="sub">${R.length} Rezepte · dein Kochbuch</div>
     <input class="search" placeholder="Suchen: Titel, Küche, Tag…" value="${esc(state.q)}" oninput="state.q=this.value;render()">
     <div class="filters">${sel('cuisine','Küche',uniq('cuisine'),state.cuisine||'')}${sel('course','Gang/Art',uniq('category_label'),state.course||'')}${sel('protein','Protein',uniq('protein'),state.protein||'')}<select class="fsel" onchange="setF('sort',this.value)"><option value="slot"${sort==='slot'?' selected':''}>↕ Slot</option><option value="kcald"${sort==='kcald'?' selected':''}>kcal ↓</option><option value="kcal"${sort==='kcal'?' selected':''}>kcal ↑</option><option value="time"${sort==='time'?' selected':''}>Zeit ↑</option><option value="title"${sort==='title'?' selected':''}>A–Z</option></select>${active?'<button class="fclear" onclick="clearF()">✕</button>':''}</div></div>
-    <div class="chips">${favChip}${chips}</div>${recentRow}<div class="count">${list.length} Rezepte</div>
+    ${heute}<div class="chips">${favChip}${chips}</div>${recentRow}<div class="count">${list.length} Rezepte</div>
     <div class="grid">${list.map(recipeCard).join('')||(state.favOnly?'<div class="empty-big">Noch keine Favoriten — tippe ☆ auf einer Rezeptkarte.</div>':'<div class="empty-big">Nichts gefunden.</div>')}</div>`;
 }
 function setF(k,v){state[k]=v;render();}
