@@ -424,7 +424,7 @@ function viewRecipes(){
   const recent=getRecent().map(byId).filter(Boolean);
   const recentRow=(!q&&!active&&!state.favOnly&&recent.length>1)?'<div class="recent"><div class="rlbl">Zuletzt angesehen</div><div class="rrow">'+recent.slice(0,8).map(function(r){return '<div class="rcard" onclick="openRecipe(\''+r.id+'\')"><div class="rcs">'+esc(r.slot||'')+'</div><div class="rct">'+esc(r.title)+'</div></div>';}).join('')+'</div></div>':'';
   return `<div class="topbar"><div class="tbrow"><h1>🍳 Culinary OS</h1><button class="impbtn" onclick="openImport()">🔗 Import</button></div><div class="sub">${R.length} Rezepte · dein Kochbuch</div>
-    <input class="search" placeholder="Suchen: Titel, Küche, Tag…" value="${esc(state.q)}" oninput="state.q=this.value;render()">
+    <input class="search" placeholder="Suchen: Titel, Küche, Tag…" value="${esc(state.q)}" oninput="onSearch(this.value)">
     <div class="filters">${sel('cuisine','Küche',uniq('cuisine'),state.cuisine||'')}${sel('course','Gang/Art',uniq('category_label'),state.course||'')}${sel('protein','Protein',uniq('protein'),state.protein||'')}<select class="fsel" onchange="setF('sort',this.value)"><option value="slot"${sort==='slot'?' selected':''}>↕ Slot</option><option value="kcald"${sort==='kcald'?' selected':''}>kcal ↓</option><option value="kcal"${sort==='kcal'?' selected':''}>kcal ↑</option><option value="time"${sort==='time'?' selected':''}>Zeit ↑</option><option value="title"${sort==='title'?' selected':''}>A–Z</option><option value="cooked"${sort==='cooked'?' selected':''}>Oft gekocht</option></select>${active?'<button class="fclear" onclick="clearF()">✕</button>':''}</div></div>
     ${heute}<div class="chips">${favChip}${chips}</div>${recentRow}<div class="count">${list.length} Rezepte</div>
     <div class="grid">${list.map(recipeCard).join('')||(state.favOnly?'<div class="empty-big">Noch keine Favoriten — tippe ☆ auf einer Rezeptkarte.</div>':'<div class="empty-big">Nichts gefunden.</div>')}</div>`;
@@ -432,6 +432,7 @@ function viewRecipes(){
 function setF(k,v){state[k]=v;render();}
 function clearF(){state.cuisine='';state.course='';state.protein='';render();}
 function setSlot(s){state.slot=s;render();}
+function onSearch(v){state.q=v;render();var el=document.querySelector('.search');if(el){el.focus();try{el.setSelectionRange(el.value.length,el.value.length);}catch(e){}}}
 
 const SUBS={
  'butter':['Margarine','Öl (¾ Menge)','Kokosöl'],'sahne':['Crème fraîche','Kochsahne','Cashew-Sahne'],
@@ -590,10 +591,10 @@ function viewShopping(){const p=getPlan();const ids=planIds(p);
   if(P===null)loadPantry();
   const agg={}; // ingKey -> {name(display), aisle, u:{unit:qty}, rec:{notionId:title}}  — global, 1 Eintrag/Zutat
   ids.forEach(id=>{const r=byId(id);if(!r)return;r.components.forEach(c=>c.ingredients.forEach(i=>{
-    const key=ingKey(i.name)||(i.name||'').toLowerCase().trim();if(!key)return;const disp=titleCase(cleanCore(i.name)||(i.name||'').trim());
-    const e=agg[key]=agg[key]||{name:disp,aisle:(i.aisle||guessAisle(cleanCore(i.name)||i.name)),u:{},rec:{}};
+    const key=canonKey(i.name);if(!key)return;const disp=canonDisp(i.name);
+    const e=agg[key]=agg[key]||{name:disp,aisle:(canonAisle(i.name)||i.aisle||guessAisle(cleanCore(i.name)||i.name)),u:{},rec:{}};
     if(disp&&/[äöü]/i.test(disp)&&!/[äöü]/i.test(e.name))e.name=disp; // Umlaut-Variante bevorzugen
-    if(i.aisle)e.aisle=i.aisle; // explizite Warengruppe aus Rezeptdaten gewinnt
+    if(canonAisle(i.name))e.aisle=canonAisle(i.name);else if(i.aisle)e.aisle=i.aisle; // Stamm-Warengruppe gewinnt
     const u=i.unit||'';e.u[u]=(e.u[u]||0)+(+i.qty||0);e.rec[id]=r.title;
   }));});
   const done=store.get('shop_done',{});
@@ -644,10 +645,20 @@ function cleanCore(n){var s=(n||'').toLowerCase().split(',')[0].split(' oder ')[
   s=s.replace(/\b(frische[rs]?|reife[rs]?|fein(e|es)?|grob(e|es)?|gehackt(e|es)?|gerieben(e|es)?|geschnitten(e|es)?|gesch(ä|ae)lt(e|es)?|getrocknet(e|es)?|gew(ü|ue)rfelt(e|es)?|ger(ö|oe)stet(e|es)?|gemahlen(e|es)?|gepresst(e|es)?|entkernt(e|es)?|in ringe[n]?|in scheiben|in streifen|nur das wei(ß|ss)e|nur das gr(ü|ue)ne|ungesalzen|gesalzen|optional|nach geschmack|zum garnieren)\b/g,' ');
   return s.replace(/[^a-zA-Zäöüßäöü0-9 \-]/g,' ').replace(/\s+/g,' ').trim();}
 function ingKey(n){return cleanCore(n).replace(/ä/g,'ae').replace(/ö/g,'oe').replace(/ü/g,'ue').replace(/ß/g,'ss');} // Gruppier-Schlüssel: Zubereitung weg + Umlaute normalisiert (Fruehlingszwiebel=Frühlingszwiebel)
+/* ---------- Kanonische Stamm-Zutaten (gegen Dubletten: Knoblauch+Knoblauchzehen, Olivenöl 4×, …) ---------- */
+let CANON=null; // {nameLower:{c:canonical,a:aisle}}
+async function loadCanon(){if(CANON)return;try{
+  var mr=await SB.from('ingredients_master').select('id,canonical_name,aisle');var mid={};(mr.data||[]).forEach(function(m){mid[m.id]={c:m.canonical_name,a:m.aisle};});
+  var map={},off=0;for(;;){var ir=await SB.from('ingredients').select('name,master_id').range(off,off+999);var rows=(ir&&ir.data)||[];rows.forEach(function(r){var mm=r.master_id&&mid[r.master_id];if(mm&&r.name)map[(''+r.name).toLowerCase()]=mm;});if(rows.length<1000)break;off+=1000;}
+  CANON=map;}catch(e){CANON={};}}
+function canonMeta(n){var m=CANON&&CANON[(n||'').toLowerCase()];if(!m)return null;if(m.c==='Nüsse'&&/öl|oel|frittier/i.test(n||''))return {c:'Neutrales Öl',a:'gewuerze_oele'};return m;}
+function canonKey(n){var m=canonMeta(n);return m?m.c.toLowerCase():(ingKey(n)||(n||'').toLowerCase().trim());}
+function canonDisp(n){var m=canonMeta(n);return m?m.c:titleCase(cleanCore(n)||(n||'').trim());}
+function canonAisle(n){var m=canonMeta(n);return (m&&m.a)||null;}
 function titleCase(s){return s?s.charAt(0).toUpperCase()+s.slice(1):s;}
 function shoppingBuyList(){var p=getPlan();var agg={};
   Object.keys(p).forEach(function(d){var di=+d;var ds=p[d];if(!ds)return;Object.keys(ds).forEach(function(m){var id=ds[m];if(!id)return;var r=byId(id);if(!r)return;
-    (r.components||[]).forEach(function(c){(c.ingredients||[]).forEach(function(i){var key=ingKey(i.name)||(i.name||'').toLowerCase();if(!key)return;var disp=titleCase(cleanCore(i.name)||(i.name||'').trim());var e=agg[key]=agg[key]||{name:disp,u:{},aisle:i.aisle||guessAisle(i.name),days:{}};if(disp&&/[äöü]/i.test(disp)&&!/[äöü]/i.test(e.name))e.name=disp;var u=i.unit||'';e.u[u]=(e.u[u]||0)+(+i.qty||0);if(!isNaN(di))e.days[di]=1;});});});});
+    (r.components||[]).forEach(function(c){(c.ingredients||[]).forEach(function(i){var key=canonKey(i.name);if(!key)return;var disp=canonDisp(i.name);var e=agg[key]=agg[key]||{name:disp,u:{},aisle:canonAisle(i.name)||i.aisle||guessAisle(i.name),days:{}};if(disp&&/[äöü]/i.test(disp)&&!/[äöü]/i.test(e.name))e.name=disp;var u=i.unit||'';e.u[u]=(e.u[u]||0)+(+i.qty||0);if(!isNaN(di))e.days[di]=1;});});});});
   var out=[];Object.keys(agg).forEach(function(k){var e=agg[k];
     var parts=[],primary=null,pq=-1;
     Object.keys(e.u).forEach(function(u){var q=e.u[u];if(!q)return;var have=pantryHave(e.name,u);var rest=Math.max(0,q-have);if(rest>1e-9){var pp={qty:Math.round(rest*100)/100,unit:u};parts.push(pp);if(rest>pq){pq=rest;primary=pp;}}});
@@ -779,12 +790,14 @@ async function cartFill(){
   var copied=false;try{await navigator.clipboard.writeText(payload);copied=true;}catch(e){}  // SKUs sofort in Zwischenablage (Klick-Geste)
   if(CART){CART._fillPayload=payload;}
   try{await SB.from('cart_runs').insert({store:store,status:'ready',total:total,item_count:items.length,items:items,note:'App-Lauf'});}catch(e){}  // Record (best effort)
+  try{window.postMessage({type:'COS_FILL_CART',items:items.map(function(x){return {sku:x.sku,qty:x.packs};}),total:total},'*');}catch(e){}  // an Billa-Erweiterung uebergeben (autom. Korb)
   cartFillSheet(items,total,packsTot,copied);
 }
 function cartFillSheet(items,total,packsTot,copied){
   var ex=document.getElementById('cfEl');if(ex)ex.remove();
   var el=document.createElement('div');el.className='chatov';el.id='cfEl';
   el.innerHTML='<div class="chathead"><b>🛒 Korb füllen</b><span class="close" onclick="(function(){var e=document.getElementById(\'cfEl\');if(e)e.remove();})()">Schließen ✕</span></div><div class="chatbody">'
+   +'<div class="cfbar"><span>🧩</span><span><b>Automatik (empfohlen):</b> oben auf das <b>CulinaryOS→Billa</b>-Erweiterungssymbol klicken → „Korb bei Billa füllen". Der Korb wurde schon an die Erweiterung übergeben.</span></div>'
    +'<div class="cfbar"><span>'+(copied?'✅':'📋')+'</span><span>'+(copied?('<b>'+items.length+' Produkte ('+packsTot+' Packg. · '+total.toFixed(2)+' €) in die Zwischenablage kopiert.</b>'):'<b>Konnte nicht automatisch kopieren.</b> Tippe „Liste kopieren".')+'</span></div>'
    +(copied?'':'<div class="btnrow" style="margin-bottom:8px"><button class="btn btn-s" onclick="copyFillPayload()">📋 Liste kopieren</button></div>')
    +'<div class="spgrp">Jetzt Korb füllen</div>'
@@ -1048,7 +1061,7 @@ function render(){const root=document.getElementById('root');
 function showLogin(msg){document.getElementById('nav').style.display='none';
   document.getElementById('root').innerHTML='<div style="max-width:420px;margin:11vh auto;padding:26px;text-align:center"><div style="font-size:42px">🍳</div><h1 style="font-family:Georgia,serif;color:var(--acc);margin:8px 0 2px;font-size:26px">Culinary OS</h1><div style="color:var(--mut);font-size:14px;margin-bottom:22px">Dein Kochbuch · 70 Rezepte, Plan, Vorrat</div><input id="em" type="email" autocomplete="username" placeholder="E-Mail" class="search" style="text-align:center;margin-bottom:8px"><input id="pw" type="password" autocomplete="current-password" placeholder="Passwort" class="search" style="text-align:center"><button class="btn btn-p" style="width:100%;margin-top:12px" onclick="doLogin()">Anmelden</button><div id="lmsg" style="font-size:13px;color:var(--mut);margin-top:16px;line-height:1.5">'+(msg||'')+'</div></div>';}
 async function doLogin(){var em=(document.getElementById('em').value||'').trim();var pw=(document.getElementById('pw').value||'');if(!em||!pw)return;document.getElementById('lmsg').textContent='Anmelden…';var r=await SB.auth.signInWithPassword({email:em,password:pw});if(r.error){document.getElementById('lmsg').textContent='Fehler: '+r.error.message;}else{boot();}}
-async function loadData(){var r=await SB.rpc('app_recipes');if(r.error)throw r.error;var rec=r.data||[];D={recipes:rec};R=rec;SLOTS=Array.from(new Set(rec.map(function(x){return x.slot}).filter(Boolean))).sort();}
+async function loadData(){var r=await SB.rpc('app_recipes');if(r.error)throw r.error;var rec=r.data||[];D={recipes:rec};R=rec;SLOTS=Array.from(new Set(rec.map(function(x){return x.slot}).filter(Boolean))).sort();try{await loadCanon();}catch(e){}}
 async function boot(){var s=(await SB.auth.getSession()).data.session;if(!s){showLogin();return;}try{await loadData();}catch(e){showLogin('Fehler beim Laden: '+((e&&e.message)||e));return;}document.getElementById('nav').style.display='';var _p=new URLSearchParams(location.search);if(_p.get('r')){var rr=byId(_p.get('r'));if(rr){state.recipe=rr;state.view='detail';}}else if(_p.get('v')){state.view=_p.get('v');}render();}
 SB.auth.onAuthStateChange(function(_e,s){if(s&&!R.length)boot();});
 boot();
