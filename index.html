@@ -353,7 +353,10 @@ const byId = id => R.find(r=>r.id===id);
 function applyTheme(){var t=store.get('theme',null);if(t!=='dark'&&t!=='light')t='light';document.body.classList.toggle('dark',t==='dark');var b=document.getElementById('themeTgl');if(b)b.textContent=t==='dark'?'☀️':'🌙';}
 function toggleTheme(){var dark=!document.body.classList.contains('dark');store.set('theme',dark?'dark':'light');applyTheme();}
 applyTheme();
-if('serviceWorker' in navigator&&location.protocol.indexOf('http')===0){navigator.serviceWorker.register('sw.js').catch(function(){});}
+if('serviceWorker' in navigator&&location.protocol.indexOf('http')===0){
+  if(navigator.serviceWorker.controller){var _swR=false;navigator.serviceWorker.addEventListener('controllerchange',function(){if(_swR)return;_swR=true;location.reload();});}  // neue Version aktiv → 1× auto-neuladen (kein alter Code mehr)
+  navigator.serviceWorker.register('sw.js').then(function(reg){try{reg.update();}catch(e){}}).catch(function(){});
+}
 const esc = s => (s==null?'':String(s)).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 function fmtQty(q,u,scale){ if(q==null) return ''; let f=q*(scale||1); let s=Math.abs(f-Math.round(f))<1e-9?String(Math.round(f)):(Math.round(f*100)/100).toString(); return (s+' '+(u||'')).trim(); }
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('on');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('on'),1900);}
@@ -684,6 +687,7 @@ function otherStoreBest(it,store){return (it.cands||[]).filter(function(c){retur
 function sparBest(it){var m=(CART&&CART.spar)||null;return m?m[(it.ing||'').toLowerCase()]:null;}
 function spDeA(s){return (s||'').toLowerCase().replace(/ä/g,'a').replace(/ö/g,'o').replace(/ü/g,'u').replace(/ß/g,'ss');}
 function sparReject(ing,name){var i=spDeA(ing),n=spDeA(name);   // Client-Backstop (2. Schicht) — verhindert Müll-Anzeige auch wenn die Edge je etwas durchließe
+  if(/hund|katze|tiernahrung|hundefutter|hundenahrung|tierbedarf|yarrah|gl(a|ae)schen|\bholle\b|hipp|alete|bebivita|fruchtbar|babynahrung|windel|drogerie|shampoo|waschmittel|kosmetik|korper/.test(n))return true;  // Non-Food/Tierfutter/Babyglas IMMER raus
   var an=/hahnch|hendl|\bhuhn|\brind|schwein|lachs|fisch|garnel|\bspeck|\bpute|\blamm|\bkalb|\bente|thunfisch|shrimp|scampi|forelle|kabeljau/.test(i);
   var fr=/karotte|tomate|paprika|gurke|zwiebel|knoblauch|\bsalat|spinat|\bapfel|\bbirne|banane|sellerie|\blauch|\bkohl|kartoffel|brokkoli|zucchini|aubergine|\bpilz|champignon|\bkraut\b|petersil|basilik|koriand|ingwer|zitrone|limette|orange|\bbeere|rucola|fenchel|radies/.test(i);
   if(an&&/vegan|plant.?based|veggie|fleischlos|wie fleisch|hahnchen-art|huhn-art|filet.?huhn|\b-art\b|soja.?filet|tofu/.test(n))return true;

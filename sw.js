@@ -1,6 +1,6 @@
 /* Culinary OS service worker — network-first für same-origin Shell, Cache als Offline-Fallback.
    Supabase/CDN (andere Origin) wird NICHT angefasst → Live-Daten immer aus dem Netz. */
-const C = 'cos-shell-v1';
+const C = 'cos-shell-v2';
 self.addEventListener('install', function () { self.skipWaiting(); });
 self.addEventListener('activate', function (e) {
   e.waitUntil(
