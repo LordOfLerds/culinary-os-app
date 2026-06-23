@@ -682,7 +682,16 @@ function chosenFor(it){var cands=it.cands||[];var prefs=PREFS||{};var store=pref
 function otherStoreBest(it,store){return (it.cands||[]).filter(function(c){return c.store!==store&&c.unit_price!=null;}).sort(function(a,b){return a.unit_price-b.unit_price;})[0];}
 /* ---------- SPAR-Cross-Store (Preis-DB market_prices, namens-gefiltert; ehrliche „Mitnehmen"-Liste) ---------- */
 function sparBest(it){var m=(CART&&CART.spar)||null;return m?m[(it.ing||'').toLowerCase()]:null;}
-function sparCheaper(it,ch){var sp=sparBest(it);return (sp&&ch&&sp.unit_price!=null&&ch.unit_price!=null&&sp.unit_base===ch.unit_base&&sp.unit_price<ch.unit_price*0.9)?sp:null;}
+function spDeA(s){return (s||'').toLowerCase().replace(/ä/g,'a').replace(/ö/g,'o').replace(/ü/g,'u').replace(/ß/g,'ss');}
+function sparReject(ing,name){var i=spDeA(ing),n=spDeA(name);   // Client-Backstop (2. Schicht) — verhindert Müll-Anzeige auch wenn die Edge je etwas durchließe
+  var an=/hahnch|hendl|\bhuhn|\brind|schwein|lachs|fisch|garnel|\bspeck|\bpute|\blamm|\bkalb|\bente|thunfisch|shrimp|scampi|forelle|kabeljau/.test(i);
+  var fr=/karotte|tomate|paprika|gurke|zwiebel|knoblauch|\bsalat|spinat|\bapfel|\bbirne|banane|sellerie|\blauch|\bkohl|kartoffel|brokkoli|zucchini|aubergine|\bpilz|champignon|\bkraut\b|petersil|basilik|koriand|ingwer|zitrone|limette|orange|\bbeere|rucola|fenchel|radies/.test(i);
+  if(an&&/vegan|plant.?based|veggie|fleischlos|wie fleisch|hahnchen-art|huhn-art|filet.?huhn|\b-art\b|soja.?filet|tofu/.test(n))return true;
+  if(an&&!/wurst|salami|speck|schinken/.test(i)&&/frankfurter|wurstel|\bwurst|leberkase|knacker|debrezin|aufschnitt|salami|streichwurst|kabanossi/.test(n))return true;
+  if(fr&&/\bsaft|gepresst|direktsaft|smoothie|nektar|getrocknet|\bchips/.test(n))return true;
+  if(/sahne|obers/.test(i)&&/steif|standfest|wunder|\bfix\b|spray|pulver|ersatz/.test(n))return true;
+  return false;}
+function sparCheaper(it,ch){var sp=sparBest(it);if(!sp||sparReject(it.ing,sp.name))return null;return (ch&&sp.unit_price!=null&&ch.unit_price!=null&&sp.unit_base===ch.unit_base&&sp.unit_price<ch.unit_price*0.9)?sp:null;}
 async function loadSpar(){try{if(typeof SB==='undefined'||!SB||!SB.functions){if(CART)CART.spar={};return;}var items=(CART&&CART.qmap)||[];if(!items.length){if(CART)CART.spar={};return;}
   var inv=await withTimeout(SB.functions.invoke('spar_match',{body:{items:items}}),60000);var by={};   // SPAR via Gemini (Edge spar_match) — kein Trigram-Muell mehr
   if(inv&&inv.data&&Array.isArray(inv.data.items))inv.data.items.forEach(function(x){if(x.spar)by[(x.ing||'').toLowerCase()]=x.spar;});
