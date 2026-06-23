@@ -680,6 +680,25 @@ function chosenFor(it){var cands=it.cands||[];var prefs=PREFS||{};var store=pref
   return staple[0]||rank(cands)[0]||null;                                      // nur unsichere -> wird markiert
 }
 function otherStoreBest(it,store){return (it.cands||[]).filter(function(c){return c.store!==store&&c.unit_price!=null;}).sort(function(a,b){return a.unit_price-b.unit_price;})[0];}
+/* ---------- SPAR-Cross-Store (Preis-DB market_prices, namens-gefiltert; ehrliche „Mitnehmen"-Liste) ---------- */
+var SPAR_BAD=/sauce|sugo|croissant|bl(ä|ae)tterteig|vegan|\bfix\b|frischk|w(ü|ue)rz|getrocknet|pulver|creme|cr(è|e)me|snack|chips|aufstrich|fertig|riegel|premium edition|stekovics/i;
+function sparHead(ing){var ts=cleanCore(ing).split(' ').filter(function(w){return w.length>=4;}).sort(function(a,b){return b.length-a.length;});return ts[0]||cleanCore(ing);}
+function sparPick(ing,cands){var h=sparHead(ing),h5=h.slice(0,5);
+  var ok=(cands||[]).filter(function(c){if(c.store!=='spar'||c.unit_price==null)return false;var n=(c.name||'').toLowerCase();if(SPAR_BAD.test(n))return false;return n.indexOf(h)>=0||(h.length>=5&&n.indexOf(h5)>=0);});
+  return ok.sort(function(a,b){return a.unit_price-b.unit_price;})[0]||null;}
+function sparBest(it){var m=(CART&&CART.spar)||null;return m?m[(it.ing||'').toLowerCase()]:null;}
+function sparCheaper(it,ch){var sp=sparBest(it);return (sp&&ch&&sp.unit_price!=null&&ch.unit_price!=null&&sp.unit_base===ch.unit_base&&sp.unit_price<ch.unit_price*0.9)?sp:null;}
+async function loadSpar(){try{if(typeof SB==='undefined'||!SB||!SB.rpc)return;var items=(CART&&CART.qmap)||[];if(!items.length){if(CART)CART.spar={};return;}
+  var r=await SB.rpc('app_cart_match',{p_items:items});var by={};((r&&r.data)||[]).forEach(function(it){var p=sparPick(it.ing,it.cands);if(p)by[(it.ing||'').toLowerCase()]=p;});
+  if(CART)CART.spar=by;render();}catch(e){if(CART)CART.spar={};}}
+function sparListSheet(){var raw=(CART&&CART.raw)||[];var rows=[];raw.forEach(function(it){var ch=chosenFor(it);var sp=sparCheaper(it,ch);if(sp)rows.push({it:it,ch:ch,sp:sp});});
+  rows.sort(function(a,b){return (b.ch.unit_price-b.sp.unit_price)-(a.ch.unit_price-a.sp.unit_price);});
+  var ex=document.getElementById('spEl');if(ex)ex.remove();var el=document.createElement('div');el.className='chatov';el.id='spEl';
+  el.innerHTML='<div class="chathead"><b>🟡 SPAR-Sparliste ('+rows.length+')</b><span class="close" onclick="(function(){var e=document.getElementById(\'spEl\');if(e)e.remove();})()">Schließen ✕</span></div><div class="chatbody">'
+   +'<div class="chathint">Bei diesen Artikeln ist SPAR/Interspar pro Einheit klar günstiger (statischer Preis-Snapshot). SPAR hat in Graz keine Online-Abholung wie Billa → <b>Liste zum Mitnehmen</b>, kein Auto-Korb.</div>'
+   +(rows.length?rows.map(function(o){return '<div class="csw"><div class="cn"><div class="cnt">'+esc(o.it.ing)+'</div><div class="cnm"><span>Billa: '+esc((o.ch.name||'').slice(0,26))+' '+(+o.ch.price).toFixed(2)+'€</span><br><span style="color:var(--acc,#b5651d)">SPAR: '+esc((o.sp.name||'').slice(0,26))+' '+(+o.sp.price).toFixed(2)+'€</span></div></div><div class="cpx">−'+Math.round(100*(1-o.sp.unit_price/o.ch.unit_price))+'%</div></div>';}).join(''):'<div class="empty-big">Kein Artikel ist bei SPAR klar günstiger — Billa passt.</div>')
+   +'<div style="height:30px"></div></div>';
+  document.body.appendChild(el);}
 function brandToken(name){var w=(name||'').replace(/^[^A-Za-zÀ-ÿ]+/,'').split(/\s+/)[0]||'';return w.replace(/[^A-Za-zÀ-ÿ!*]/g,'');}
 function cartSig(){try{return JSON.stringify(shoppingBuyList().map(function(x){return [x.name,x.qty,x.unit];}))+'|'+JSON.stringify((PREFS&&PREFS.pins)||[])+'|'+JSON.stringify((PREFS&&PREFS.overrides)||{})+'|'+((PREFS&&PREFS.staple_store)||'');}catch(e){return null;}}
 function openCartView(){state.view='cart';if(!(CART&&CART.raw&&CART._sig&&CART._sig===cartSig()))CART=null;render();}  // Cache: nur neu wenn sich was änderte
@@ -706,7 +725,7 @@ async function buildCart(){if(PREFS===null)await loadPrefs();if(P===null)loadPan
     if(buildCart._tok!==tok)return;
     CART={loading:true,n:items.length,prog:{done:Math.min(b+CH,items.length),total:items.length},_sig:sig};render();
   }
-  CART={raw:acc,ai:anyAi,note:note,qmap:items,_sig:sig};render();}
+  CART={raw:acc,ai:anyAi,note:note,qmap:items,_sig:sig};render();loadSpar();}
 function cartLoading(msg){var p=(CART&&CART.prog)||null;var pct=p&&p.total?Math.round(100*p.done/p.total):0;
   var bar=p?'<div style="height:9px;background:var(--soft,#efeae1);border-radius:6px;overflow:hidden;margin:18px auto 7px;max-width:300px"><div style="height:100%;width:'+pct+'%;background:var(--acc,#b5651d);transition:width .35s"></div></div><div style="font-size:12.5px;color:var(--mut,#9b968c)">'+p.done+' / '+p.total+' Zutaten gematcht · '+pct+' %</div>':'';
   return '<div class="topbar"><h1>🛒 Warenkorb</h1><div class="sub">stellt zusammen…</div></div><div class="psec" style="text-align:center;padding:28px 16px"><div style="font-size:15px">⏳ '+esc(msg)+'</div>'+bar+'</div>';}
@@ -722,7 +741,7 @@ function goodSize(s){return s&&/[a-z]/i.test(s)?s:'';}  // "1" ohne Einheit ausb
 function cartItemCard(it,idx,store,meta){var ch=chosenFor(it);var need=needText(it,meta);
   if(!ch)return '<div class="cit miss"><div class="pic">🔎</div><div class="mid"><div class="ing">'+esc(it.ing)+' <span class="need">'+need+'</span></div><div class="prod">kein passendes Produkt</div></div><div class="right"><div class="cacts"><span class="cact" onclick="cartSwap('+idx+')" title="suchen">🔎</span></div></div></div>';
   var pk=packsFor(it);
-  var ob=otherStoreBest(it,store);var hint='';if(ob&&ob.price<ch.price&&ch.unit_price!=null&&ob.unit_price!=null&&ob.unit_price<ch.unit_price){hint='<span class="oth">'+esc((ob.store||'').toUpperCase())+' −'+(ch.price-ob.price).toFixed(2)+'€</span>';}
+  var sp=sparCheaper(it,ch);var hint='';if(sp){hint='<span class="oth" title="'+esc(sp.name||'')+' · '+(+sp.price).toFixed(2)+' €">SPAR '+Math.round(100*(1-sp.unit_price/ch.unit_price))+'% billiger</span>';}
   var pinned=(PREFS.pins||[]).some(function(p){return p&&ch.name.toLowerCase().indexOf(p.toLowerCase())>=0;});
   var unsure=ch.sim!=null&&ch.sim<SIM_OK&&!(CART&&CART.ai);
   var badges='';if(ch.bio)badges+=' <span class="bbio">BIO</span>';if(pinned)badges+=' <span class="bpin">📌</span>';if(unsure)badges+=' <span class="bwarn">⚠ prüfen</span>';
@@ -750,12 +769,13 @@ function viewCart(){
   if(CART.empty)return '<div class="topbar"><h1>Warenkorb-Vorschlag</h1></div><div class="empty-big">'+(CART.empty==='noplan'?'Noch nichts geplant.<br>Füge im <b>Plan</b> Gerichte hinzu — dann stelle ich den Korb zusammen.':'Alles schon im Vorrat ✓<br>Nichts zu kaufen für den aktuellen Plan.')+'</div>'+navBackShop();
   var raw=CART.raw||[];var store=(PREFS&&PREFS.staple_store)||'billa';
   if(!raw.length)return '<div class="topbar"><h1>Warenkorb-Vorschlag</h1></div><div class="empty-big">Keine Treffer gefunden.</div>'+navBackShop();
-  var total=0,miss=0,savings=0,saveItems=0,packsTot=0;
-  raw.forEach(function(it){var ch=chosenFor(it);if(!ch){miss++;return;}total+=lineTotal(it,ch);packsTot+=packsFor(it);var ob=otherStoreBest(it,store);if(ob&&ob.price<ch.price){savings+=(ch.price-ob.price);saveItems++;}});
+  var total=0,miss=0,saveItems=0,packsTot=0;
+  raw.forEach(function(it){var ch=chosenFor(it);if(!ch){miss++;return;}total+=lineTotal(it,ch);packsTot+=packsFor(it);if(sparCheaper(it,ch))saveItems++;});
   var aiBadge=CART.ai?'<span class="aitag">✨ KI-Match</span>':(CART.note==='no_key'?'<span class="bwarn">KI-Key fehlt → Basis-Match</span>':(CART.note&&CART.note.indexOf('gemini')===0?'<span class="bwarn">KI kurz überlastet → Basis-Match</span>':''));
   var hits=raw.length-miss;
   var sub='<b>'+hits+' im Korb</b> · '+packsTot+' Packg. · '+total.toFixed(2)+' €'+(miss?' · '+miss+' kein Treffer':'');
-  var banner=(saveItems>=5&&savings>8&&savings>total*0.15)?'<div class="psec"><div class="chint"><span class="ic">💡</span><span class="hx"><b>Zweitmarkt lohnt sich:</b> '+saveItems+' Artikel wären woanders ~'+savings.toFixed(2)+' € billiger.</span></div></div>':'';
+  var spLoaded=!!(CART&&CART.spar);
+  var banner=!spLoaded?'<div class="psec"><div class="chathint" style="text-align:center;opacity:.6">🟡 SPAR-Vergleich lädt…</div></div>':(saveItems>=5?'<div class="psec"><div class="chint" onclick="sparListSheet()" style="cursor:pointer"><span class="ic">🟡</span><span class="hx"><b>SPAR-Sparliste:</b> bei '+saveItems+' Artikeln ist SPAR pro Einheit klar günstiger → tippen für die Liste zum Mitnehmen.</span></div></div>':'');
   return '<div class="topbar"><h1>🛒 Warenkorb</h1><div class="sub">'+sub+' '+aiBadge+'</div></div>'
     +'<div class="cartctl"><div class="seg2"><span class="'+(cartGroup==='art'?'on':'')+'" onclick="setCartGroup(\'art\')">nach Art</span><span class="'+(cartGroup==='tag'?'on':'')+'" onclick="setCartGroup(\'tag\')">nach Tag</span></div><input class="search csearch" placeholder="🔎 Artikel suchen…" value="'+esc(cartQ)+'" oninput="cartSearchInput(this.value)" autocomplete="off"></div>'
     +'<div class="cartctl" style="margin-top:6px"><span style="font-size:12px;color:var(--mut);align-self:center">Auswahl:</span><div class="seg2"><span class="'+(bioLvl()==='always'?'on':'')+'" onclick="setBio(\'always\')">🌿 Bio immer</span><span class="'+(bioLvl()==='near'?'on':'')+'" onclick="setBio(\'near\')">Bio wenn nah</span><span class="'+(bioLvl()==='off'?'on':'')+'" onclick="setBio(\'off\')">günstigst</span></div></div>'
@@ -763,7 +783,7 @@ function viewCart(){
     +'<div class="sum"><span class="l">'+store.toUpperCase()+'-Korb gesamt</span><span class="v">'+total.toFixed(2)+' €</span></div>'
     +'<div class="cfbar"><span>🧩</span><span><b>Prüf den Vorschlag</b> (↔ tauschen, 📌 Marke merken) — dann <b>„Korb füllen"</b> → aufs <b>CulinaryOS→Billa</b>-Erweiterungssymbol → „Korb bei Billa füllen". <b>Bezahlen wählst du selbst.</b></span></div>'
     +'<div class="btnrow"><button class="btn btn-s" onclick="state.view=\'shopping\';render()">‹ Liste</button><button class="btn btn-s" onclick="refreshCart()" title="neu matchen">↻</button><button class="btn btn-p" onclick="cartFill()">🛒 Korb füllen</button></div>'
-    +'<div class="btnrow" style="margin-top:8px"><button class="btn btn-s" onclick="window.open(\'https://shop.billa.at\',\'_blank\')">Billa öffnen ↗</button><button class="btn btn-s" onclick="cartCheckout()">✓ Schon eingekauft</button></div>'
+    +'<div class="btnrow" style="margin-top:8px"><button class="btn btn-s" onclick="sparListSheet()">🟡 SPAR</button><button class="btn btn-s" onclick="window.open(\'https://shop.billa.at/warenkorb\',\'_blank\')">Billa öffnen ↗</button><button class="btn btn-s" onclick="cartCheckout()">✓ Eingekauft</button></div>'
     +'<div class="chathint" style="padding:10px 16px">Einzelnes Produkt tippen → öffnet die Billa-Seite. ↔ tauschen · 📌 Marke merken. „✓ Schon eingekauft" bucht den Korb in deinen Vorrat (MHD ab heute).</div><div style="height:30px"></div>';
 }
 function navBackShop(){return '<div class="btnrow"><button class="btn btn-s" onclick="state.view=\'shopping\';render()">‹ zurück zur Liste</button></div>';}
