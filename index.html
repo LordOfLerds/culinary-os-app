@@ -760,7 +760,7 @@ function cartItemCard(it,idx,store,meta){var ch=chosenFor(it);var need=needText(
   return '<div class="cit">'+picHtml(ch,pk)+'<div class="mid"><div class="ing">'+esc(it.ing)+' <span class="need">'+need+'</span></div><div class="prod"><a class="prodlnk" href="'+billaUrl(ch)+'" target="_blank" rel="noopener">'+esc(ch.name)+'</a>'+badges+'</div><div class="cmeta">'+meta.join(' · ')+'</div></div><div class="right"><div class="cpr">'+lt.toFixed(2)+' €'+(pk>1?'<span class="ppk">'+pk+'× '+(+ch.price).toFixed(2)+'</span>':'')+'</div><div class="cacts"><span class="cact" onclick="cartPin('+idx+')" title="Marke merken">📌</span><span class="cact" onclick="cartSwap('+idx+')" title="tauschen">↔</span></div></div></div>';}
 function cartBodyHtml(){var raw=CART.raw||[];var store=(PREFS&&PREFS.staple_store)||'billa';var q=(cartQ||'').toLowerCase().trim();
   var qmap={};((CART&&CART.qmap)||[]).forEach(function(x){qmap[(x.name||'').toLowerCase()]=x;});
-  var rows=raw.map(function(it,idx){return {it:it,idx:idx,meta:qmap[(it.ing||'').toLowerCase()]||{}};});
+  var rows=raw.map(function(it,idx){return {it:it,idx:idx,meta:qmap[(it.ing||'').toLowerCase()]||{}};}).filter(function(o){return chosenFor(o.it);});  // Misses kommen in eigene „Fehlt"-Sektion
   if(q)rows=rows.filter(function(o){var ch=chosenFor(o.it);return (o.it.ing||'').toLowerCase().indexOf(q)>=0||((ch&&ch.name)||'').toLowerCase().indexOf(q)>=0;});
   var html='';
   if(cartGroup==='tag'){
@@ -772,6 +772,25 @@ function cartBodyHtml(){var raw=CART.raw||[];var store=(PREFS&&PREFS.staple_stor
       html+='<div class="psec"><div class="pgh">'+esc(AISLE_DE[a])+'</div>'+inA.map(function(o){return cartItemCard(o.it,o.idx,store,o.meta);}).join('')+'</div>';});
   }
   return html||'<div class="empty-big">Keine Treffer'+(q?' für „'+esc(cartQ)+'"':'')+'.</div>';}
+function missRows(){var raw=(CART&&CART.raw)||[];var qmap={};((CART&&CART.qmap)||[]).forEach(function(x){qmap[(x.name||'').toLowerCase()]=x;});
+  return raw.map(function(it,idx){return {it:it,idx:idx,meta:qmap[(it.ing||'').toLowerCase()]||{}};}).filter(function(o){return !chosenFor(o.it);});}
+function cartMissHtml(){var miss=missRows();if(!miss.length)return '';
+  var rows=miss.map(function(o){var need=needText(o.it,o.meta);var sp=(CART&&CART.spar)?sparBest(o.it):null;var spOk=sp&&!sparReject(o.it.ing,sp.name);
+    var right=spOk?'<a class="prodlnk" href="'+(sp.url?'https://www.interspar.at/shop/lebensmittel/':'#')+'" target="_blank" rel="noopener">SPAR: '+esc((sp.name||'').slice(0,28))+' '+(+sp.price).toFixed(2)+'€</a>':'nicht bei Billa';
+    return '<div class="cit miss"><div class="pic">🔎</div><div class="mid"><div class="ing">'+esc(o.it.ing)+' <span class="need">'+need+'</span></div><div class="prod">'+right+'</div></div><div class="right"><div class="cacts"><span class="cact" onclick="cartSwap('+o.idx+')" title="doch bei Billa suchen">↔</span></div></div></div>';}).join('');
+  return '<div class="psec"><div class="pgh">🔎 Fehlt bei Billa ('+miss.length+') — woanders besorgen</div><div class="chathint" style="padding:2px 0 8px;opacity:.75">Diese führt Billa (Graz) nicht. Liste mitnehmen/teilen oder bei SPAR prüfen.</div>'+rows
+    +'<div class="btnrow" style="margin-top:8px"><button class="btn btn-s" onclick="exportMissing()">📋 Liste teilen/kopieren</button><button class="btn btn-s" onclick="sparCheckMissing()">🟡 bei SPAR prüfen</button></div></div>';}
+function exportMissing(){var miss=missRows();if(!miss.length){toast('Nichts fehlt 🎉');return;}
+  var txt='Fehlt bei Billa — woanders besorgen:\n'+miss.map(function(o){return '• '+o.it.ing+' — '+needText(o.it,o.meta);}).join('\n');
+  if(navigator.share){navigator.share({title:'Einkauf · fehlt bei Billa',text:txt}).catch(function(){});}
+  else{navigator.clipboard.writeText(txt).then(function(){toast('Liste kopiert');},function(){toast('Kopieren blockiert — Text markieren');});}}
+async function sparCheckMissing(){var miss=missRows();if(!miss.length){toast('Nichts zu prüfen');return;}
+  if(typeof SB==='undefined'||!SB||!SB.functions){toast('Nur in der Live-App');return;}
+  toast('Prüfe bei SPAR (KI)…');
+  try{var items=miss.map(function(o){return {name:o.it.ing,qty:(o.meta&&o.meta.qty)||o.it.qty,unit:(o.meta&&o.meta.unit)||o.it.unit};});
+    var inv=await withTimeout(SB.functions.invoke('spar_match',{body:{items:items}}),60000);CART.spar=CART.spar||{};
+    if(inv&&inv.data&&Array.isArray(inv.data.items))inv.data.items.forEach(function(x){if(x.spar)CART.spar[(x.ing||'').toLowerCase()]=x.spar;});
+    render();var n=miss.filter(function(o){var s=sparBest(o.it);return s&&!sparReject(o.it.ing,s.name);}).length;toast(n?(n+' bei SPAR gefunden'):'Bei SPAR auch nichts');}catch(e){toast('SPAR-Prüfung fehlgeschlagen');}}
 function viewCart(){
   if(CART===null){buildCart();return cartLoading('Produkte & Preise werden gematcht…');}
   if(CART.loading)return cartLoading('Matche '+(CART.n||'')+' Zutaten mit Billa…');
@@ -788,7 +807,7 @@ function viewCart(){
   return '<div class="topbar"><h1>🛒 Warenkorb</h1><div class="sub">'+sub+' '+aiBadge+'</div></div>'
     +'<div class="cartctl"><div class="seg2"><span class="'+(cartGroup==='art'?'on':'')+'" onclick="setCartGroup(\'art\')">nach Art</span><span class="'+(cartGroup==='tag'?'on':'')+'" onclick="setCartGroup(\'tag\')">nach Tag</span></div><input class="search csearch" placeholder="🔎 Artikel suchen…" value="'+esc(cartQ)+'" oninput="cartSearchInput(this.value)" autocomplete="off"></div>'
     +'<div class="cartctl" style="margin-top:6px"><span style="font-size:12px;color:var(--mut);align-self:center">Auswahl:</span><div class="seg2"><span class="'+(bioLvl()==='always'?'on':'')+'" onclick="setBio(\'always\')">🌿 Bio immer</span><span class="'+(bioLvl()==='near'?'on':'')+'" onclick="setBio(\'near\')">Bio wenn nah</span><span class="'+(bioLvl()==='off'?'on':'')+'" onclick="setBio(\'off\')">günstigst</span></div></div>'
-    +banner+'<div id="cartBody">'+cartBodyHtml()+'</div>'
+    +banner+'<div id="cartBody">'+cartBodyHtml()+'</div>'+cartMissHtml()
     +'<div class="sum"><span class="l">'+store.toUpperCase()+'-Korb gesamt</span><span class="v">'+total.toFixed(2)+' €</span></div>'
     +'<div class="cfbar"><span>🧩</span><span><b>Prüf den Vorschlag</b> (↔ tauschen, 📌 Marke merken) — dann <b>„Korb füllen"</b> → aufs <b>CulinaryOS→Billa</b>-Erweiterungssymbol → „Korb bei Billa füllen". <b>Bezahlen wählst du selbst.</b></span></div>'
     +'<div class="btnrow"><button class="btn btn-s" onclick="state.view=\'shopping\';render()">‹ Liste</button><button class="btn btn-s" onclick="refreshCart()" title="neu matchen">↻</button><button class="btn btn-p" onclick="cartFill()">🛒 Korb füllen</button></div>'
