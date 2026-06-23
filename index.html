@@ -681,16 +681,13 @@ function chosenFor(it){var cands=it.cands||[];var prefs=PREFS||{};var store=pref
 }
 function otherStoreBest(it,store){return (it.cands||[]).filter(function(c){return c.store!==store&&c.unit_price!=null;}).sort(function(a,b){return a.unit_price-b.unit_price;})[0];}
 /* ---------- SPAR-Cross-Store (Preis-DB market_prices, namens-gefiltert; ehrliche „Mitnehmen"-Liste) ---------- */
-var SPAR_BAD=/sauce|sugo|croissant|bl(ä|ae)tterteig|vegan|\bfix\b|frischk|w(ü|ue)rz|getrocknet|pulver|creme|cr(è|e)me|snack|chips|aufstrich|fertig|riegel|premium edition|stekovics/i;
-function sparHead(ing){var ts=cleanCore(ing).split(' ').filter(function(w){return w.length>=4;}).sort(function(a,b){return b.length-a.length;});return ts[0]||cleanCore(ing);}
-function sparPick(ing,cands){var h=sparHead(ing),h5=h.slice(0,5);
-  var ok=(cands||[]).filter(function(c){if(c.store!=='spar'||c.unit_price==null)return false;var n=(c.name||'').toLowerCase();if(SPAR_BAD.test(n))return false;return n.indexOf(h)>=0||(h.length>=5&&n.indexOf(h5)>=0);});
-  return ok.sort(function(a,b){return a.unit_price-b.unit_price;})[0]||null;}
 function sparBest(it){var m=(CART&&CART.spar)||null;return m?m[(it.ing||'').toLowerCase()]:null;}
 function sparCheaper(it,ch){var sp=sparBest(it);return (sp&&ch&&sp.unit_price!=null&&ch.unit_price!=null&&sp.unit_base===ch.unit_base&&sp.unit_price<ch.unit_price*0.9)?sp:null;}
-async function loadSpar(){try{if(typeof SB==='undefined'||!SB||!SB.rpc)return;var items=(CART&&CART.qmap)||[];if(!items.length){if(CART)CART.spar={};return;}
-  var r=await SB.rpc('app_cart_match',{p_items:items});var by={};((r&&r.data)||[]).forEach(function(it){var p=sparPick(it.ing,it.cands);if(p)by[(it.ing||'').toLowerCase()]=p;});
-  if(CART)CART.spar=by;render();}catch(e){if(CART)CART.spar={};}}
+async function loadSpar(){try{if(typeof SB==='undefined'||!SB||!SB.functions){if(CART)CART.spar={};return;}var items=(CART&&CART.qmap)||[];if(!items.length){if(CART)CART.spar={};return;}
+  var inv=await withTimeout(SB.functions.invoke('spar_match',{body:{items:items}}),60000);var by={};   // SPAR via Gemini (Edge spar_match) — kein Trigram-Muell mehr
+  if(inv&&inv.data&&Array.isArray(inv.data.items))inv.data.items.forEach(function(x){if(x.spar)by[(x.ing||'').toLowerCase()]=x.spar;});
+  if(CART)CART.spar=by;}catch(e){if(CART)CART.spar={};}}
+async function openSparList(){if(!(CART&&CART.spar)){var ex=document.getElementById('spEl');if(ex)ex.remove();var lo=document.createElement('div');lo.className='chatov';lo.id='spEl';lo.innerHTML='<div class="chathead"><b>🟡 SPAR-Vergleich</b><span class="close" onclick="(function(){var e=document.getElementById(\'spEl\');if(e)e.remove();})()">✕</span></div><div class="chatbody"><div class="psec" style="text-align:center;padding:34px">⏳ Vergleiche bei SPAR (KI)…</div></div>';document.body.appendChild(lo);await loadSpar();render();}sparListSheet();}
 function sparListSheet(){var raw=(CART&&CART.raw)||[];var rows=[];raw.forEach(function(it){var ch=chosenFor(it);var sp=sparCheaper(it,ch);if(sp)rows.push({it:it,ch:ch,sp:sp});});
   rows.sort(function(a,b){return (b.ch.unit_price-b.sp.unit_price)-(a.ch.unit_price-a.sp.unit_price);});
   var ex=document.getElementById('spEl');if(ex)ex.remove();var el=document.createElement('div');el.className='chatov';el.id='spEl';
@@ -725,7 +722,7 @@ async function buildCart(){if(PREFS===null)await loadPrefs();if(P===null)loadPan
     if(buildCart._tok!==tok)return;
     CART={loading:true,n:items.length,prog:{done:Math.min(b+CH,items.length),total:items.length},_sig:sig};render();
   }
-  CART={raw:acc,ai:anyAi,note:note,qmap:items,_sig:sig};render();loadSpar();}
+  CART={raw:acc,ai:anyAi,note:note,qmap:items,_sig:sig};render();}
 function cartLoading(msg){var p=(CART&&CART.prog)||null;var pct=p&&p.total?Math.round(100*p.done/p.total):0;
   var bar=p?'<div style="height:9px;background:var(--soft,#efeae1);border-radius:6px;overflow:hidden;margin:18px auto 7px;max-width:300px"><div style="height:100%;width:'+pct+'%;background:var(--acc,#b5651d);transition:width .35s"></div></div><div style="font-size:12.5px;color:var(--mut,#9b968c)">'+p.done+' / '+p.total+' Zutaten gematcht · '+pct+' %</div>':'';
   return '<div class="topbar"><h1>🛒 Warenkorb</h1><div class="sub">stellt zusammen…</div></div><div class="psec" style="text-align:center;padding:28px 16px"><div style="font-size:15px">⏳ '+esc(msg)+'</div>'+bar+'</div>';}
@@ -774,8 +771,7 @@ function viewCart(){
   var aiBadge=CART.ai?'<span class="aitag">✨ KI-Match</span>':(CART.note==='no_key'?'<span class="bwarn">KI-Key fehlt → Basis-Match</span>':(CART.note&&CART.note.indexOf('gemini')===0?'<span class="bwarn">KI kurz überlastet → Basis-Match</span>':''));
   var hits=raw.length-miss;
   var sub='<b>'+hits+' im Korb</b> · '+packsTot+' Packg. · '+total.toFixed(2)+' €'+(miss?' · '+miss+' kein Treffer':'');
-  var spLoaded=!!(CART&&CART.spar);
-  var banner=!spLoaded?'<div class="psec"><div class="chathint" style="text-align:center;opacity:.6">🟡 SPAR-Vergleich lädt…</div></div>':(saveItems>=5?'<div class="psec"><div class="chint" onclick="sparListSheet()" style="cursor:pointer"><span class="ic">🟡</span><span class="hx"><b>SPAR-Sparliste:</b> bei '+saveItems+' Artikeln ist SPAR pro Einheit klar günstiger → tippen für die Liste zum Mitnehmen.</span></div></div>':'');
+  var banner=(CART&&CART.spar&&saveItems>=5)?'<div class="psec"><div class="chint" onclick="openSparList()" style="cursor:pointer"><span class="ic">🟡</span><span class="hx"><b>SPAR-Sparliste:</b> bei '+saveItems+' Artikeln ist SPAR pro Einheit klar günstiger → tippen für die Liste zum Mitnehmen.</span></div></div>':'';
   return '<div class="topbar"><h1>🛒 Warenkorb</h1><div class="sub">'+sub+' '+aiBadge+'</div></div>'
     +'<div class="cartctl"><div class="seg2"><span class="'+(cartGroup==='art'?'on':'')+'" onclick="setCartGroup(\'art\')">nach Art</span><span class="'+(cartGroup==='tag'?'on':'')+'" onclick="setCartGroup(\'tag\')">nach Tag</span></div><input class="search csearch" placeholder="🔎 Artikel suchen…" value="'+esc(cartQ)+'" oninput="cartSearchInput(this.value)" autocomplete="off"></div>'
     +'<div class="cartctl" style="margin-top:6px"><span style="font-size:12px;color:var(--mut);align-self:center">Auswahl:</span><div class="seg2"><span class="'+(bioLvl()==='always'?'on':'')+'" onclick="setBio(\'always\')">🌿 Bio immer</span><span class="'+(bioLvl()==='near'?'on':'')+'" onclick="setBio(\'near\')">Bio wenn nah</span><span class="'+(bioLvl()==='off'?'on':'')+'" onclick="setBio(\'off\')">günstigst</span></div></div>'
@@ -783,7 +779,7 @@ function viewCart(){
     +'<div class="sum"><span class="l">'+store.toUpperCase()+'-Korb gesamt</span><span class="v">'+total.toFixed(2)+' €</span></div>'
     +'<div class="cfbar"><span>🧩</span><span><b>Prüf den Vorschlag</b> (↔ tauschen, 📌 Marke merken) — dann <b>„Korb füllen"</b> → aufs <b>CulinaryOS→Billa</b>-Erweiterungssymbol → „Korb bei Billa füllen". <b>Bezahlen wählst du selbst.</b></span></div>'
     +'<div class="btnrow"><button class="btn btn-s" onclick="state.view=\'shopping\';render()">‹ Liste</button><button class="btn btn-s" onclick="refreshCart()" title="neu matchen">↻</button><button class="btn btn-p" onclick="cartFill()">🛒 Korb füllen</button></div>'
-    +'<div class="btnrow" style="margin-top:8px"><button class="btn btn-s" onclick="sparListSheet()">🟡 SPAR</button><button class="btn btn-s" onclick="window.open(\'https://shop.billa.at/warenkorb\',\'_blank\')">Billa öffnen ↗</button><button class="btn btn-s" onclick="cartCheckout()">✓ Eingekauft</button></div>'
+    +'<div class="btnrow" style="margin-top:8px"><button class="btn btn-s" onclick="openSparList()">🟡 SPAR vergleichen</button><button class="btn btn-s" onclick="window.open(\'https://shop.billa.at/warenkorb\',\'_blank\')">Billa öffnen ↗</button><button class="btn btn-s" onclick="cartCheckout()">✓ Eingekauft</button></div>'
     +'<div class="chathint" style="padding:10px 16px">Einzelnes Produkt tippen → öffnet die Billa-Seite. ↔ tauschen · 📌 Marke merken. „✓ Schon eingekauft" bucht den Korb in deinen Vorrat (MHD ab heute).</div><div style="height:30px"></div>';
 }
 function navBackShop(){return '<div class="btnrow"><button class="btn btn-s" onclick="state.view=\'shopping\';render()">‹ zurück zur Liste</button></div>';}
